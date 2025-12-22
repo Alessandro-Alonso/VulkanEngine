@@ -23,7 +23,7 @@ namespace Platform {
         char buffer[1024];
         uint32_t size = sizeof(buffer);
         int result = _NSGetExecutablePath(buffer, &size);
-        CHECK(result == 0, "Failed to get executable path on macOS");
+        GE_CHECK(result == 0, "Failed to get executable path on macOS");
 
         // If buffer was too small, resize and retry
         if (size > sizeof(buffer)) {
