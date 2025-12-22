@@ -1,6 +1,7 @@
 #include "Renderer.h"
 #include "Vulkan/Platform/FileSystem.h"
 #include <stdexcept>
+#include <sstream>
 
 Renderer::Renderer(Window& win, VkInstance inst, VkSurfaceKHR surf)
     : context(win, inst, surf), window(win)

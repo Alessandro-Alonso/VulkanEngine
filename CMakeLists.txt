@@ -1,8 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.31.6)
-
-if(APPLE)
-    set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "Build architecture for Apple Silicon" FORCE)
-endif()
+﻿cmake_minimum_required(VERSION 3.20)
 
 project(VulkanEngine VERSION 0.1.0 LANGUAGES C CXX)
 
@@ -13,13 +9,13 @@ set(CMAKE_CXX_STANDARD 20)
 file(GLOB_RECURSE ENGINE_SOURCES src/*.cpp)
 file(GLOB_RECURSE IMGUI_SOURCES imgui/*.cpp)
 
-add_executable(VulkanEngine ${ENGINE_SOURCES} "src/Vulkan/Utils/ErrorHandling.cpp" "src/Vulkan/Utils/ErrorHandling.h")
+add_executable(VulkanEngine ${ENGINE_SOURCES})
 target_include_directories(VulkanEngine PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # Librerias de Imgui y directorios.
-add_library(imgui STATIC ${IMGUI_SOURCES} "src/Vulkan/Utils/ErrorHandling.cpp" "src/Vulkan/Utils/ErrorHandling.h")
+add_library(imgui STATIC ${IMGUI_SOURCES})
 target_include_directories(imgui PUBLIC imgui imgui/backends)
 target_link_libraries(imgui PUBLIC Vulkan::Vulkan glfw)
 target_link_libraries(VulkanEngine PRIVATE imgui)

@@ -2,34 +2,41 @@
 
 #include <vulkan/vulkan.h>
 #include <optional>
+#include <vector>
+#include <string>
 #include "Vulkan/Utils/VulkanTypes.h"
+
+struct DeviceCapabilities {
+    bool samplerAnisotropy = false;
+    bool fillModeNonSolid = false;
+    bool descriptorIndexing = false;
+    bool timelineSemaphores = false;
+    bool dynamicRendering = false;
+    bool meshShaders = false;
+    bool portabilitySubset = false;
+};
 
 class PhysicalDevice {
 public:
-    VkPhysicalDevice pickPhysicalDevice(VkInstance instance, VkSurfaceKHR surface);
-    VkPhysicalDevice getPhysicalDevice() const {return physicalDevice; }
-    VkDevice getDevice() const { return device; }
-
-
-    VkQueue getGraphicsQueue() const { return graphicsQueue; }
-    VkQueue getPresentQueue() const { return presentQueue; }
-
-    void createLogicalDevice(VkSurfaceKHR surface);
+    void pickPhysicalDevice(VkInstance instance, VkSurfaceKHR surface);
+    void createLogicalDevice();
     void cleanup();
 
+    VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
+    VkDevice getDevice() const { return logicalDevice; }
+    const DeviceCapabilities& getCapabilities() const { return capabilities; }
     QueueFamilyIndices getQueueFamilyIndices() const { return queueFamilyIndices; }
 
 private:
-    QueueFamilyIndices queueFamilyIndices;
-
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    
-    VkDevice device = VK_NULL_HANDLE;
-
+    VkDevice logicalDevice = VK_NULL_HANDLE;
     VkQueue graphicsQueue = VK_NULL_HANDLE;
     VkQueue presentQueue = VK_NULL_HANDLE;
-    
-    bool isDeviceSuitable(VkPhysicalDevice device);
+    QueueFamilyIndices queueFamilyIndices;
+    DeviceCapabilities capabilities;
 
-    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
+    bool isDeviceSuitable(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR surface);
+    bool checkDeviceExtensionSupport(VkPhysicalDevice vkPhysicalDevice, const std::vector<const char*>& requiredExtensions);
+    void queryDeviceCapabilities(VkPhysicalDevice vkPhysicalDevice);
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR surface);
 };

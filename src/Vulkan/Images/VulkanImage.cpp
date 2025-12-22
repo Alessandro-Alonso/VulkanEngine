@@ -1,16 +1,14 @@
 #include "VulkanImage.h"
 #include "Vulkan\Utils\ErrorHandling.h"
+#include "Vulkan\Utils\vk_mem_alloc.h"
 #include <stdexcept>
 
 VulkanImage::VulkanImage(
-    VkDevice device,
-    VkPhysicalDevice physicalDevice,
-    uint32_t width,
-    uint32_t height,
-    VkFormat format,
+    VmaAllocator allocator,
+    uint32_t width, uint32_t height, VkFormat format,
     VkImageUsageFlags usage,
-    VkMemoryPropertyFlags properties
-) : device(device)
+    VmaMemoryUsage vmaUsage
+) : allocator(allocator)
 {
     // Crea la imagen
     VkImageCreateInfo imageInfo{};
@@ -29,47 +27,14 @@ VulkanImage::VulkanImage(
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
-    // Error Handling.
-    VK_CHECK(vkCreateImage(device, &imageInfo, nullptr, &image));
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.usage = vmaUsage;
 
-    // Asignar memoria    
-    VkMemoryRequirements memReq;
-    vkGetImageMemoryRequirements(device, image, &memReq);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memReq.size;
-    allocInfo.memoryTypeIndex = findMemoryType(
-        physicalDevice,
-        memReq.memoryTypeBits,
-        properties
-    );
-
-    // Error Handling.
-    VK_CHECK(vkAllocateMemory(device, &allocInfo, nullptr, &memory));
-
-    vkBindImageMemory(device, image, memory, 0);
-
-}    
-
-VulkanImage::~VulkanImage() {
-    if (image != VK_NULL_HANDLE) vkDestroyImage(device, image, nullptr);
-    if (memory != VK_NULL_HANDLE) vkFreeMemory(device, memory, nullptr);
+    // Error Handling Macro
+    VK_CHECK(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &allocation, nullptr));
 }
 
-uint32_t VulkanImage::findMemoryType(
-    VkPhysicalDevice physicalDevice,
-    uint32_t typeFilter,
-    VkMemoryPropertyFlags properties
-) {
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-    for(uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) &&
-        (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-        return i;
-    }
-
-    throw std::runtime_error("No suitable memory type found for image allocation at " + std::string(__FILE__) + ":" + std::to_string(__LINE__));
+VulkanImage::~VulkanImage() {
+    if (image != VK_NULL_HANDLE)
+        vmaDestroyImage(allocator, image, allocation);
 }

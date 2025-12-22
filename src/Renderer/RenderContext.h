@@ -3,7 +3,9 @@
 #include <vulkan/vulkan.h>
 #include "Vulkan/Device/PhysicalDevice.h"
 #include "Vulkan/Swapchain/VulkanSwapChain.h"
+#include "Vulkan/Utils/vk_mem_alloc.h"
 #include "Core/Window/Window.h"
+#include <sstream>
 
 class RenderContext {
 public:
@@ -13,7 +15,8 @@ public:
     // Getters
     VkDevice getDevice() const { return physicalDeviceManager.getDevice(); }
     VkPhysicalDevice getPhysicalDevice() const { return physicalDeviceManager.getPhysicalDevice(); }
-    VulkanSwapChain* getSwapChain() const { return swapChain; }
+    VulkanSwapChain* getSwapChain() const { return swapChain.get(); }
+    VmaAllocator getAllocator() const { return allocator; }
 
     QueueFamilyIndices getQueueFamilies() const { return physicalDeviceManager.getQueueFamilyIndices(); }
 
@@ -22,8 +25,9 @@ public:
 private:
     Window& window;
     PhysicalDevice physicalDeviceManager;
-    VulkanSwapChain* swapChain = nullptr;
+    std::unique_ptr<VulkanSwapChain> swapChain;
     QueueFamilyIndices queueFamilies;
+    VmaAllocator allocator;
 
     friend class HelloTriangleApplication;
 };

@@ -119,7 +119,7 @@ GraphicsPipeline::GraphicsPipeline(
     info.pColorBlendState = &blending;
     info.layout = pipelineLayout;
     info.renderPass = renderPass;
-
+    
     // Error Handling.
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline));
 }
