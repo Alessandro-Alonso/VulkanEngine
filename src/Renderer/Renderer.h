@@ -19,11 +19,12 @@ private:
     void createPipeline();
 
     RenderContext context;
-    RenderPass* renderPass = nullptr;
-    PipelineLayout* pipelineLayout = nullptr;
-    GraphicsPipeline* graphicsPipeline = nullptr;
-    FrameManager* frameManager = nullptr;
-    CommandManager* commandManager = nullptr;
+
+    std::unique_ptr<RenderPass> renderPass;
+    std::unique_ptr<PipelineLayout> pipelineLayout;
+    std::unique_ptr<GraphicsPipeline> graphicsPipeline;
+    std::unique_ptr<FrameManager> frameManager;
+    std::unique_ptr<CommandManager> commandManager;
 
     Window& window;
 };

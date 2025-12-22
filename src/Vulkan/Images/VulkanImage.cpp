@@ -1,4 +1,5 @@
 #include "VulkanImage.h"
+#include "Vulkan\Utils\ErrorHandling.h"
 #include <stdexcept>
 
 VulkanImage::VulkanImage(
@@ -28,8 +29,8 @@ VulkanImage::VulkanImage(
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 
-    if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS)
-        throw std::runtime_error("Something happened and i can't create the Vulkan Image. Do some research. Or curse to whoever made this piece of shit code. ");
+    // Error Handling.
+    VK_CHECK(vkCreateImage(device, &imageInfo, nullptr, &image));
 
     // Asignar memoria    
     VkMemoryRequirements memReq;
@@ -44,8 +45,8 @@ VulkanImage::VulkanImage(
         properties
     );
 
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &memory) != VK_SUCCESS)
-        throw std::runtime_error("For some reason i can't allocate the image memory. I don't know why.");
+    // Error Handling.
+    VK_CHECK(vkAllocateMemory(device, &allocInfo, nullptr, &memory));
 
     vkBindImageMemory(device, image, memory, 0);
 
@@ -70,5 +71,5 @@ uint32_t VulkanImage::findMemoryType(
         return i;
     }
 
-    throw std::runtime_error("I can't find a suitable memory type! im sorry.");
+    throw std::runtime_error("No suitable memory type found for image allocation at " + std::string(__FILE__) + ":" + std::to_string(__LINE__));
 }

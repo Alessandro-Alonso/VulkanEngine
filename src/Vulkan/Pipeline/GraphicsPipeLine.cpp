@@ -1,6 +1,6 @@
 #include "GraphicsPipeLine.h"
 #include "Vulkan/Shaders/ShaderModule.h"
-#include "Vulkan/Utils/VulkanUtils.h"
+#include "Vulkan/Utils/ErrorHandling.h"
 #include <stdexcept>
 
 GraphicsPipeline::GraphicsPipeline(
@@ -120,9 +120,8 @@ GraphicsPipeline::GraphicsPipeline(
     info.layout = pipelineLayout;
     info.renderPass = renderPass;
 
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline)
-        != VK_SUCCESS)
-        throw std::runtime_error("Failed to create GraphicsPipeline. Check your GraphicsPipeline.cpp/h file");
+    // Error Handling.
+    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline));
 }
 
 GraphicsPipeline::~GraphicsPipeline() {

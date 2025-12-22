@@ -1,4 +1,4 @@
-#include "App\HelloTriangle\HelloTriangleApplication.h"
+#include "App/HelloTriangle/HelloTriangleApplication.h"
 #include <iostream>
 
 int main() {

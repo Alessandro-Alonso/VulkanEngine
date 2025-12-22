@@ -1,4 +1,5 @@
 #include "VulkanImageView.h"
+#include "Vulkan\Utils\ErrorHandling.h"
 #include <stdexcept>
 
 VulkanImageView::VulkanImageView(
@@ -19,10 +20,9 @@ VulkanImageView::VulkanImageView(
     viewInfo.subresourceRange.levelCount = 1;
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
-
-    if (vkCreateImageView(device, &viewInfo, nullptr, &view) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create the Vulkan ImageView. If this shit comes up, the developer did something wrong. Contact him and insult him.");
-    }
+    
+    // Error Handling.
+    VK_CHECK(vkCreateImageView(device, &viewInfo, nullptr, &view));
 }
 
 VulkanImageView::~VulkanImageView() {

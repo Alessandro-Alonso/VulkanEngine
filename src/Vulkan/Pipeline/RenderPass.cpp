@@ -1,4 +1,5 @@
 #include "RenderPass.h"
+#include "Vulkan\Utils\ErrorHandling.h"
 #include <stdexcept>
 
 RenderPass::RenderPass(VkDevice device, VkFormat swapchainImageFormat)
@@ -30,8 +31,8 @@ RenderPass::RenderPass(VkDevice device, VkFormat swapchainImageFormat)
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
 
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create RenderPass");
+    // Error Handling.
+    VK_CHECK(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass));
 }
 
 RenderPass::~RenderPass() {

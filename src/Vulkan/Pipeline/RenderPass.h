@@ -11,5 +11,5 @@ public:
 
 private:
     VkDevice device;
-    VkRenderPass renderPass;
+    VkRenderPass renderPass{ VK_NULL_HANDLE };
 };

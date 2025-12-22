@@ -1,4 +1,5 @@
 #include "VulkanUtils.h"
+#include "ErrorHandling.h"
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
@@ -8,9 +9,9 @@
 
 std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary); // Abrimos al final para conocer tamaño
-    if (!file.is_open()) {
-        throw std::runtime_error("Failed to open file: " + filename);
-    }
+
+    //Error Handling.
+    GE_CHECK(file.is_open(), "Failed to open file: " + filename);
 
     size_t fileSize = (size_t)file.tellg();
     std::vector<char> buffer(fileSize);

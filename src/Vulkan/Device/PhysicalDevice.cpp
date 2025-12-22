@@ -1,5 +1,6 @@
 #include "PhysicalDevice.h"
 #include "Vulkan/Utils/VulkanTypes.h"
+#include "Vulkan\Utils\ErrorHandling.h"
 #include <vector>
 #include <stdexcept>
 #include <iostream>
@@ -13,11 +14,11 @@
 #endif
 #endif
 
-bool PhysicalDevice::isDeviceSuitable(VkPhysicalDevice device) {
+bool PhysicalDevice::isDeviceSuitable(VkPhysicalDevice vkPhysicalDevice) {
     VkPhysicalDeviceProperties deviceProperties;
     VkPhysicalDeviceFeatures deviceFeatures;
-    vkGetPhysicalDeviceProperties(device, &deviceProperties);
-    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+    vkGetPhysicalDeviceProperties(vkPhysicalDevice, &deviceProperties);
+    vkGetPhysicalDeviceFeatures(vkPhysicalDevice, &deviceFeatures);
 
 #ifdef __APPLE__
     // Si el jugador esta en macOS, le decimos que MoltenVK no tiene soporte para la geometria de shaders. Lo saltamos.
@@ -34,7 +35,7 @@ bool PhysicalDevice::isDeviceSuitable(VkPhysicalDevice device) {
 }
 
 VkPhysicalDevice PhysicalDevice::pickPhysicalDevice(VkInstance instance, VkSurfaceKHR surface) {
-    uint32_t deviceCount = 0;   
+    uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
     if (deviceCount == 0) {
@@ -43,31 +44,28 @@ VkPhysicalDevice PhysicalDevice::pickPhysicalDevice(VkInstance instance, VkSurfa
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
-
-    for (const auto& device : devices) {
+    for (const auto& vkPhysicalDevice : devices) {  // Changed 'device' to 'vkPhysicalDevice' here too
         VkPhysicalDeviceProperties props;
-        vkGetPhysicalDeviceProperties(device, &props);
-        if (isDeviceSuitable(device)) {
-            QueueFamilyIndices indices = findQueueFamilies(device, surface);
+        vkGetPhysicalDeviceProperties(vkPhysicalDevice, &props);
+        if (isDeviceSuitable(vkPhysicalDevice)) {
+            QueueFamilyIndices indices = findQueueFamilies(vkPhysicalDevice, surface);
             if (indices.isComplete()) {
-                physicalDevice = device;
+                physicalDevice = vkPhysicalDevice;
                 queueFamilyIndices = indices;
                 return physicalDevice;
             }
         }
     }
-
     throw std::runtime_error("You don't have a GPU that supports presentation. IDK wtf this means either.");
-
 };
 
-QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) {
+QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR surface) {
     QueueFamilyIndices indices;
 
     uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+    vkGetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevice, &queueFamilyCount, nullptr);
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(vkPhysicalDevice, &queueFamilyCount, queueFamilies.data());
 
     for(uint32_t i = 0; i < queueFamilies.size(); i++) {
         const auto& queueFamily = queueFamilies[i];
@@ -77,7 +75,7 @@ QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalDevice device, Vk
         }
 
         VkBool32 presentSupport = false;
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+        vkGetPhysicalDeviceSurfaceSupportKHR(vkPhysicalDevice, i, surface, &presentSupport);
         if (presentSupport) {
             indices.presentFamily = i;
         }
@@ -89,6 +87,7 @@ QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalDevice device, Vk
 }
 
 void PhysicalDevice::createLogicalDevice(VkSurfaceKHR surface) {
+    (void)surface;
     QueueFamilyIndices& indices = queueFamilyIndices;
 
     std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
@@ -124,17 +123,15 @@ createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
 // Layers de validacion
 #ifdef ENABLE_VALIDATION_LAYERS
-extern const std::vector<const char*> validationLayers;
-createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-createInfo.ppEnabledLayerNames = validationLayers.data();
+    const std::vector<const char*> validationLayers = {
+        "VK_LAYER_KHRONOS_validation"
+    };
 #else
-createInfo.enabledLayerCount = 0;
+    const std::vector<const char*> validationLayers = {};
 #endif
 
-    // Creamos el dispositivo
-    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
-        throw std::runtime_error("I failed to create the logical device. Why? idk.");
-    }
+    // Error handling.
+    VK_CHECK(vkCreateDevice(physicalDevice, &createInfo, nullptr, &device));
 
     vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
     vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);

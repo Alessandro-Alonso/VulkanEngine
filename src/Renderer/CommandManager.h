@@ -2,10 +2,9 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
+#include <memory>
 
 class RenderContext;
-class RenderPass;
-class GraphicsPipeline;
 class VulkanSwapChain;
 
 class CommandManager {
@@ -13,7 +12,7 @@ public:
     CommandManager(
         const RenderContext& context,
         VkRenderPass renderPass,
-        VkPipeline graphicsPipeline, 
+        VkPipeline graphicsPipeline,
         const VulkanSwapChain& swapChain
     );
     ~CommandManager();
@@ -25,11 +24,17 @@ public:
 
 private:
     const RenderContext& context;
-    VkCommandPool commandPool = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> commandBuffers;
-
     VkRenderPass renderPass;
     VkPipeline graphicsPipeline;
+
+    std::vector<VkCommandBuffer> commandBuffers;
+
+    struct CommandPoolDeleter {
+        const RenderContext& context;
+        void operator()(VkCommandPool* pool) const;
+    };
+
+    std::unique_ptr<VkCommandPool, CommandPoolDeleter> commandPool;
 
     void createCommandPool();
 };

@@ -1,4 +1,5 @@
 #include "VulkanSwapChain.h"
+#include "Vulkan\Utils\ErrorHandling.h"
 #include <iostream>
 
 VulkanSwapChain::VulkanSwapChain(VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, GLFWwindow* window, const QueueFamilyIndices& indices)
@@ -126,9 +127,8 @@ void VulkanSwapChain::createSwapChain() {
     createInfo.clipped = VK_TRUE;
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-    if (vkCreateSwapchainKHR (device, &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
-        throw std::runtime_error("I can't make the swapchain. Do some research buddy.");
-    }
+    // Error Handling.
+    VK_CHECK(vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain));
 
     vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
     swapChainImages.resize(imageCount);
@@ -162,8 +162,7 @@ void VulkanSwapChain::createImageViews() {
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = 1;
 
-        if (vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]) != VK_SUCCESS) {
-            throw std::runtime_error("I can't create the image view. I don't know what this means.");
-        }
+        // Error Handling.
+        VK_CHECK(vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[i]));
     }
 }

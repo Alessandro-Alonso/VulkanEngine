@@ -5,14 +5,14 @@
 Renderer::Renderer(Window& win, VkInstance inst, VkSurfaceKHR surf)
     : context(win, inst, surf), window(win)
 {
-    renderPass = new RenderPass(context.getDevice(), context.getSwapChain()->getImageFormat());
-    pipelineLayout = new PipelineLayout(context.getDevice());
+    renderPass = std::make_unique<RenderPass>(context.getDevice(), context.getSwapChain()->getImageFormat());
+    pipelineLayout = std::make_unique<PipelineLayout>(context.getDevice());
 
     createPipeline();
 
-    frameManager = new FrameManager(context, renderPass->get(), *context.getSwapChain());
+    frameManager = std::make_unique<FrameManager>(context, renderPass->get(), *context.getSwapChain());
 
-    commandManager = new CommandManager(
+    commandManager = std::make_unique<CommandManager>(
         context,
         renderPass->get(),
         graphicsPipeline->get(),
@@ -23,16 +23,13 @@ Renderer::Renderer(Window& win, VkInstance inst, VkSurfaceKHR surf)
 }
 
 Renderer::~Renderer() {
-    delete commandManager;
-    delete frameManager;
-    delete graphicsPipeline;
-    delete pipelineLayout;
-    delete renderPass;
+
+    context.waitIdle();
 }
 
 void Renderer::createPipeline() {
     std::string exePath = Platform::GetExecutableDirectory();
-    graphicsPipeline = new GraphicsPipeline(
+    graphicsPipeline = std::make_unique<GraphicsPipeline>(
         context.getDevice(),
         context.getSwapChain()->getExtent(),
         renderPass->get(),
@@ -43,5 +40,5 @@ void Renderer::createPipeline() {
 }
 
 void Renderer::drawFrame() {
-    // Próximo paso: sincronización
+    // Proximo paso: sincronizacion
 }

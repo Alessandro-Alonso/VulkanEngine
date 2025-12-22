@@ -1,4 +1,5 @@
 #include "PipelineLayout.h"
+#include "Vulkan\Utils\ErrorHandling.h"
 #include <stdexcept>
 
 PipelineLayout::PipelineLayout(VkDevice device)
@@ -7,8 +8,8 @@ PipelineLayout::PipelineLayout(VkDevice device)
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-    if(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &layout) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create PipelineLayout");
+    // Error Handling.
+    VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &layout));
 }
 
 PipelineLayout::~PipelineLayout() {

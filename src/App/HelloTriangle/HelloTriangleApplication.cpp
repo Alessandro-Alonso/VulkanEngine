@@ -1,4 +1,5 @@
 #include "HelloTriangleApplication.h"
+#include "Vulkan/Utils/ErrorHandling.h"
 #include "Vulkan/Utils/VulkanUtils.h"
 #include <stdexcept>
 #include <iostream>
@@ -42,18 +43,19 @@ void HelloTriangleApplication::cleanup() {
     }
 
     vkDestroyInstance(instance, nullptr);
-
     window.cleanup();
 }
 
 void HelloTriangleApplication::createInstance() {
+
+    // Error Handling.
     if (enableValidationLayers && !checkValidationLayerSupport()) {
-        throw std::runtime_error("Im asking for the Validation layers, but you don't have them, mister.");
+        GE_CHECK(false, "Requested validation layers are not available");
     }
 
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "Hello Triangle";
+    appInfo.pApplicationName = "No Engine";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "No Engine";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -67,9 +69,18 @@ void HelloTriangleApplication::createInstance() {
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
+#ifdef ENABLE_VALIDATION_LAYERS
+    createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+    createInfo.ppEnabledLayerNames = validationLayers.data();
+#else
+    createInfo.enabledLayerCount = 0;
+#endif
+
 #ifdef __APPLE__
     createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 #endif
+
+    vkCreateInstance(&createInfo, nullptr, &instance);
 
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if (enableValidationLayers) {
@@ -84,9 +95,7 @@ void HelloTriangleApplication::createInstance() {
         createInfo.pNext = nullptr;
     }
 
-    if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
-        throw std::runtime_error("I don't fucking know what happened, but i can't create the vulkan instance. Sorry.");
-    }
+    VK_CHECK(vkCreateInstance(&createInfo, nullptr, &instance));
 }
 
 void HelloTriangleApplication::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
@@ -108,13 +117,12 @@ void HelloTriangleApplication::setupDebugMessenger() {
     VkDebugUtilsMessengerCreateInfoEXT createInfo{};
     populateDebugMessengerCreateInfo(createInfo);
 
-    if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-        throw std::runtime_error("I can't set up the debug messenger, idk.");
-    }
+    // Error Handling.
+    VK_CHECK(CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger));
 }
 
 void HelloTriangleApplication::createSurface() {
-    if (glfwCreateWindowSurface(instance, window.getWindow(), nullptr, &surface) != VK_SUCCESS) {
-        throw std::runtime_error("I can't set up the window, this shit is broken in pieces.");
-    }
+
+    // Error Handling.
+    VK_CHECK(glfwCreateWindowSurface(instance, window.getWindow(), nullptr, &surface));
 }
