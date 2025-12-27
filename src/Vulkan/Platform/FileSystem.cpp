@@ -1,3 +1,7 @@
+// This whole file is written by AI. I dind't want to waste my time writting this, and focus more on the internal parts of vulkan.
+// Este archivo entero fue escrito por la AI. No queria tirar mi tiempo escribiendo esto. Queria meterle mas focus a las partes 
+// internas de vulkan. Lo dejo aqui para quien lo vea, sepa que no es mi codigo.
+
 #include "FileSystem.h"
 #include "Vulkan\Utils\ErrorHandling.h"
 #include <stdexcept>
