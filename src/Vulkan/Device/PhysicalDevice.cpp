@@ -3,10 +3,10 @@
 #include "Vulkan/Utils/ErrorHandling.h"
 #include <vector>
 #include <stdexcept>
-#include <iostream>
 #include <string>
 #include <set>
-#include <map>
+
+namespace NETAEngine {
 
 const std::vector<const char*> baseDeviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -21,10 +21,19 @@ void PhysicalDevice::pickPhysicalDevice(VkInstance instance, VkSurfaceKHR surfac
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
-    std::multimap<int, VkPhysicalDevice> candidates;
+    VkPhysicalDevice bestDevice = VK_NULL_HANDLE;
+    int bestScore = 0;
+
+    m_queueFamilyIndices = QueueFamilyIndices();
 
     for (const auto& vkDevice : devices) {
-        if (!isDeviceSuitable(vkDevice, surface)) continue;
+
+        QueueFamilyIndices indices = findQueueFamilies(vkDevice, surface);
+        bool extensionsSupported = checkDeviceExtensionSupport(vkDevice, baseDeviceExtensions);
+
+        if (!indices.isComplete() || !extensionsSupported) {
+            continue;
+        }
 
         int score = 0;
         VkPhysicalDeviceProperties props;
@@ -33,17 +42,21 @@ void PhysicalDevice::pickPhysicalDevice(VkInstance instance, VkSurfaceKHR surfac
         if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) score += 1000;
         score += props.limits.maxImageDimension2D;
 
-        candidates.insert({ score, vkDevice });
+        if (score > bestScore) {
+            bestDevice = vkDevice;
+            bestScore = score;
+            m_physicalDevice = bestDevice;
+            m_queueFamilyIndices = indices;
+        }
     }
 
-    if (!candidates.empty() && candidates.rbegin()->first > 0) {
-        physicalDevice = candidates.rbegin()->second;
-        queueFamilyIndices = findQueueFamilies(physicalDevice, surface);
-        queryDeviceCapabilities(physicalDevice);
+    if (bestScore > 0 && m_physicalDevice != VK_NULL_HANDLE) {
+        queryDeviceCapabilities(m_physicalDevice);
     }
     else {
         throw std::runtime_error("No suitable GPU found.");
     }
+
 }
 
 bool PhysicalDevice::isDeviceSuitable(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR surface) {
@@ -68,25 +81,29 @@ void PhysicalDevice::queryDeviceCapabilities(VkPhysicalDevice vkPhysicalDevice) 
     VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES };
     VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES };
     VkPhysicalDeviceMeshShaderFeaturesEXT meshFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT };
+    VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
 
     indexingFeatures.pNext = &timelineFeatures;
     timelineFeatures.pNext = &meshFeatures;
+    meshFeatures.pNext = &dynamicRenderingFeatures;
 
     VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
     features2.pNext = &indexingFeatures;
 
     vkGetPhysicalDeviceFeatures2(vkPhysicalDevice, &features2);
 
-    capabilities.samplerAnisotropy = features2.features.samplerAnisotropy;
-    capabilities.fillModeNonSolid = features2.features.fillModeNonSolid;
-    capabilities.timelineSemaphores = timelineFeatures.timelineSemaphore;
+    m_capabilities.samplerAnisotropy = features2.features.samplerAnisotropy;
+    m_capabilities.fillModeNonSolid = features2.features.fillModeNonSolid;
+    m_capabilities.timelineSemaphores = timelineFeatures.timelineSemaphore;
+    m_capabilities.dynamicRendering = dynamicRenderingFeatures.dynamicRendering;
 
-    capabilities.descriptorIndexing =
+    m_capabilities.descriptorIndexing =
         indexingFeatures.runtimeDescriptorArray &&
         indexingFeatures.descriptorBindingPartiallyBound &&
-        indexingFeatures.shaderSampledImageArrayNonUniformIndexing;
+        indexingFeatures.shaderSampledImageArrayNonUniformIndexing &&
+        indexingFeatures.descriptorBindingVariableDescriptorCount;
 
-    capabilities.meshShaders = hasMeshShaderExtension && meshFeatures.meshShader;
+    m_capabilities.meshShaders = hasMeshShaderExtension && meshFeatures.meshShader;
 }
 
 bool PhysicalDevice::checkDeviceExtensionSupport(VkPhysicalDevice vkPhysicalDevice, const std::vector<const char*>& extensionsToCheck) {
@@ -103,8 +120,8 @@ bool PhysicalDevice::checkDeviceExtensionSupport(VkPhysicalDevice vkPhysicalDevi
 void PhysicalDevice::createLogicalDevice() {
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = {
-        queueFamilyIndices.graphicsFamily.value(),
-        queueFamilyIndices.presentFamily.value()
+        m_queueFamilyIndices.graphicsFamily.value(),
+        m_queueFamilyIndices.presentFamily.value()
     };
 
     float queuePriority = 1.0f;
@@ -118,16 +135,26 @@ void PhysicalDevice::createLogicalDevice() {
     }
 
     VkPhysicalDeviceFeatures2 enabledFeatures2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-    enabledFeatures2.features.samplerAnisotropy = capabilities.samplerAnisotropy;
-    enabledFeatures2.features.fillModeNonSolid = capabilities.fillModeNonSolid;
+    enabledFeatures2.features.samplerAnisotropy = m_capabilities.samplerAnisotropy;
+    enabledFeatures2.features.fillModeNonSolid = m_capabilities.fillModeNonSolid;
 
     VkPhysicalDeviceDescriptorIndexingFeatures enabledIndexing{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES };
     VkPhysicalDeviceTimelineSemaphoreFeatures enabledTimeline{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES };
     VkPhysicalDeviceMeshShaderFeaturesEXT enabledMesh{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT };
+    VkPhysicalDeviceDynamicRenderingFeatures enabledDynamicRendering{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
 
     void* currentPNext = nullptr;
 
-    if (capabilities.descriptorIndexing) {
+    if (m_capabilities.dynamicRendering) {
+        enabledDynamicRendering.dynamicRendering = VK_TRUE;
+        enabledDynamicRendering.pNext = currentPNext;
+        currentPNext = &enabledDynamicRendering;
+    }
+    else {
+        throw std::runtime_error("GPU does not support Dynamic Rendering! To fucking old gpu.");
+    }
+
+    if (m_capabilities.descriptorIndexing) {
         enabledIndexing.runtimeDescriptorArray = VK_TRUE;
         enabledIndexing.descriptorBindingPartiallyBound = VK_TRUE;
         enabledIndexing.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
@@ -136,13 +163,13 @@ void PhysicalDevice::createLogicalDevice() {
         currentPNext = &enabledIndexing;
     }
 
-    if (capabilities.timelineSemaphores) {
+    if (m_capabilities.timelineSemaphores) {
         enabledTimeline.timelineSemaphore = VK_TRUE;
         enabledTimeline.pNext = currentPNext;
         currentPNext = &enabledTimeline;
     }
 
-    if (capabilities.meshShaders) {
+    if (m_capabilities.meshShaders) {
         enabledMesh.meshShader = VK_TRUE;
         enabledMesh.taskShader = VK_TRUE;
         enabledMesh.pNext = currentPNext;
@@ -152,13 +179,13 @@ void PhysicalDevice::createLogicalDevice() {
     enabledFeatures2.pNext = currentPNext;
 
     std::vector<const char*> activeExtensions = baseDeviceExtensions;
-    if (capabilities.meshShaders) activeExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+    if (m_capabilities.meshShaders) activeExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
 
     // Portabilidad for Mac
     uint32_t extCount;
-    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extCount, nullptr);
+    vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &extCount, nullptr);
     std::vector<VkExtensionProperties> availableExts(extCount);
-    vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extCount, availableExts.data());
+    vkEnumerateDeviceExtensionProperties(m_physicalDevice, nullptr, &extCount, availableExts.data());
 
     for (const auto& ext : availableExts) {
         if (std::string(ext.extensionName) == "VK_KHR_portability_subset") {
@@ -174,10 +201,13 @@ void PhysicalDevice::createLogicalDevice() {
     createInfo.enabledExtensionCount = static_cast<uint32_t>(activeExtensions.size());
     createInfo.ppEnabledExtensionNames = activeExtensions.data();
 
-    VK_CHECK(vkCreateDevice(physicalDevice, &createInfo, nullptr, &logicalDevice));
+    VkDevice rawDevice = VK_NULL_HANDLE;
+    VK_CHECK(vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &rawDevice));
 
-    vkGetDeviceQueue(logicalDevice, queueFamilyIndices.graphicsFamily.value(), 0, &graphicsQueue);
-    vkGetDeviceQueue(logicalDevice, queueFamilyIndices.presentFamily.value(), 0, &presentQueue);
+    m_logicalDevice = DeviceHandle(rawDevice, DeviceDeleter{});
+
+    vkGetDeviceQueue(m_logicalDevice.get(), m_queueFamilyIndices.graphicsFamily.value(), 0, &graphicsQueue);
+    vkGetDeviceQueue(m_logicalDevice.get(), m_queueFamilyIndices.presentFamily.value(), 0, &presentQueue);
 }
 
 QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR surface) {
@@ -199,10 +229,4 @@ QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalDevice vkPhysical
     }
     return indices;
 }
-
-void PhysicalDevice::cleanup() {
-    if (logicalDevice != VK_NULL_HANDLE) {
-        vkDestroyDevice(logicalDevice, nullptr);
-        logicalDevice = VK_NULL_HANDLE;
-    }
 }

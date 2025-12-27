@@ -1,45 +1,263 @@
 #include "Renderer.h"
 #include "Vulkan/Platform/FileSystem.h"
+#include "Vulkan/Utils/ErrorHandling.h"
 #include <stdexcept>
-#include <sstream>
 
-Renderer::Renderer(Window& win, VkInstance inst, VkSurfaceKHR surf)
-    : context(win, inst, surf), window(win)
-{
-    renderPass = std::make_unique<RenderPass>(context.getDevice(), context.getSwapChain()->getImageFormat());
-    pipelineLayout = std::make_unique<PipelineLayout>(context.getDevice());
+namespace NETAEngine {
 
-    createPipeline();
+    static void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout) {
+        VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+        barrier.oldLayout = oldLayout;
+        barrier.newLayout = newLayout;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
 
-    frameManager = std::make_unique<FrameManager>(context, renderPass->get(), *context.getSwapChain());
+        VkPipelineStageFlags sourceStage;
+        VkPipelineStageFlags destinationStage;
 
-    commandManager = std::make_unique<CommandManager>(
-        context,
-        renderPass->get(),
-        graphicsPipeline->get(),
-        *context.getSwapChain()
-    );
+        if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        }
+        else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            barrier.dstAccessMask = 0;
+            sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        }
+        else {
+            throw std::invalid_argument("Unsupported layout transition!");
+        }
 
-    commandManager->recordCommands(frameManager->getFramebuffers(), *context.getSwapChain());
-}
+        vkCmdPipelineBarrier(cmd, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    }
 
-Renderer::~Renderer() {
+    Renderer::Renderer(Window& win, VkInstance inst, VkSurfaceKHR surf)
+        : context(win, inst, surf), window(win)
+    {
+        initVulkan();
+    }
 
-    context.waitIdle();
-}
+    Renderer::~Renderer() {
+        context.waitIdle();
+        VkDevice device = context.getDevice();
 
-void Renderer::createPipeline() {
-    std::string exePath = Platform::GetExecutableDirectory();
-    graphicsPipeline = std::make_unique<GraphicsPipeline>(
-        context.getDevice(),
-        context.getSwapChain()->getExtent(),
-        renderPass->get(),
-        pipelineLayout->get(),
-        (exePath + "/Vulkan/Shaders/vert.spv").c_str(),
-        (exePath + "/Vulkan/Shaders/frag.spv").c_str()
-    );
-}
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
+            vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
+            vkDestroyFence(device, inFlightFences[i], nullptr);
+        }
 
-void Renderer::drawFrame() {
-    // Proximo paso: sincronizacion
+        vkDestroyCommandPool(device, commandPool, nullptr);
+    }
+
+    void Renderer::initVulkan() {
+        pipelineLayout = std::make_unique<PipelineLayout>(context.getDevice());
+        createPipeline();
+        createCommandSystem();
+        createSyncObjects();
+    }
+
+    void Renderer::createPipeline() {
+        std::string exePath = Platform::GetExecutableDirectory();
+        graphicsPipeline = std::make_unique<GraphicsPipeline>(
+            context.getDevice(),
+            context.getSwapChain()->getExtent(),
+            context.getSwapChain()->getImageFormat(),
+            pipelineLayout->get(),
+            (exePath + "/Vulkan/Shaders/vert.spv").c_str(),
+            (exePath + "/Vulkan/Shaders/frag.spv").c_str()
+        );
+    }
+
+    void Renderer::createCommandSystem() {
+        QueueFamilyIndices queueFamilyIndices = context.getQueueFamilies();
+
+        VkCommandPoolCreateInfo poolInfo{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+        VK_CHECK(vkCreateCommandPool(context.getDevice(), &poolInfo, nullptr, &commandPool));
+
+        commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+        VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
+        allocInfo.commandPool = commandPool;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+
+        VK_CHECK(vkAllocateCommandBuffers(context.getDevice(), &allocInfo, commandBuffers.data()));
+
+    }
+
+    void Renderer::createSyncObjects() {
+        imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
+        // Resize imagesInFlight to match swapchain image count
+        imagesInFlight.resize(context.getSwapChain()->getImageCount(), VK_NULL_HANDLE);
+
+        VkSemaphoreCreateInfo semaphoreInfo{};
+        semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+        VkFenceCreateInfo fenceInfo{};
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+        VkDevice device = context.getDevice();
+
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]));
+            VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]));
+            VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]));
+        }
+    }
+
+    void Renderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex) {
+        VkCommandBufferBeginInfo beginInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
+        VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
+
+        VkImage swapChainImage = context.getSwapChain()->getImage(imageIndex); // i need to put getImage() on my swapchain class.
+
+        imageBarrier(cmd, swapChainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+        VkRenderingAttachmentInfo colorAttachment{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+        colorAttachment.imageView = context.getSwapChain()->getImageView(imageIndex);
+        colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
+        colorAttachment.clearValue = clearColor;
+
+        VkRenderingInfo renderingInfo{ VK_STRUCTURE_TYPE_RENDERING_INFO };
+        renderingInfo.renderArea = { {0, 0}, context.getSwapChain()->getExtent() };
+        renderingInfo.layerCount = 1;
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachments = &colorAttachment;
+
+        // Empieza el dynamic render
+        vkCmdBeginRendering(cmd, &renderingInfo);
+
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->get());
+
+        // Setup del stado dynamico
+        VkViewport viewport{};
+        viewport.width = (float)context.getSwapChain()->getExtent().width;
+        viewport.height = (float)context.getSwapChain()->getExtent().height;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+        VkRect2D scissor{};
+        scissor.extent = context.getSwapChain()->getExtent();
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+        // Dibuja
+        vkCmdDraw(cmd, 3, 1, 0, 0);
+
+        // Termina el render
+        vkCmdEndRendering(cmd);
+
+        // Transiciona las imagenes al presente
+        imageBarrier(cmd, swapChainImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+        VK_CHECK(vkEndCommandBuffer(cmd));
+    }
+
+    void Renderer::drawFrame() {
+        VkDevice device = context.getDevice();
+        VkSwapchainKHR swapChain = context.getSwapChain()->getSwapChain();
+
+        VK_CHECK(vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
+
+        uint32_t imageIndex;
+        VkResult result = vkAcquireNextImageKHR(
+            device,
+            swapChain,
+            UINT64_MAX,
+            imageAvailableSemaphores[currentFrame],
+            VK_NULL_HANDLE,
+            &imageIndex
+        );
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+            // TODO: Trigger swapchain recreation (you'll add this later)
+            // For now, just return to avoid crashing
+            return;
+        }
+        else if (result != VK_SUCCESS) {
+            throw std::runtime_error("Failed to acquire swapchain image!");
+        }
+
+        // Espera si la imagen del swapchain especifico esta en uso de un previo frame
+        if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
+            VK_CHECK(vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX));
+        }
+
+        // Esta imagen esta ahora protegida del frame actual
+        imagesInFlight[imageIndex] = inFlightFences[currentFrame];
+
+        // Resetea el fence por este frame.
+        VK_CHECK(vkResetFences(device, 1, &inFlightFences[currentFrame]));
+
+        // Resetea los command buffer grabados
+        VK_CHECK(vkResetCommandBuffer(commandBuffers[currentFrame], 0));
+
+        // Graba los nuevos comandos
+        recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+
+        // Manda los command buffer
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+        VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+        VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = waitSemaphores;
+        submitInfo.pWaitDstStageMask = waitStages;
+
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+
+        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = signalSemaphores;
+
+        VkQueue graphicsQueue;
+        vkGetDeviceQueue(device, context.getQueueFamilies().graphicsFamily.value(), 0, &graphicsQueue);
+
+        VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]));
+
+        // Presente
+        VkPresentInfoKHR presentInfo{};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = signalSemaphores;
+
+        VkSwapchainKHR swapChains[] = { swapChain };
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = swapChains;
+        presentInfo.pImageIndices = &imageIndex;
+
+        VkQueue presentQueue;
+        vkGetDeviceQueue(device, context.getQueueFamilies().presentFamily.value(), 0, &presentQueue);
+
+        result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+            return;
+        }
+        else if (result != VK_SUCCESS) {
+            throw std::runtime_error("Failed to present swapchain image!");
+        }
+
+        currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    }
 }

@@ -1,30 +1,53 @@
 #pragma once
 
 #include "RenderContext.h"
-#include "CommandManager.h"
-#include "FrameManager.h"
-#include "Vulkan/Pipeline/RenderPass.h"
 #include "Vulkan/Pipeline/PipelineLayout.h"
 #include "Vulkan/Pipeline/GraphicsPipeLine.h"
 
-class Renderer {
-public:
-    Renderer(Window& window, VkInstance instance, VkSurfaceKHR surface);
-    ~Renderer();
+#include <vector>
+#include <memory>
+#include <vulkan/vulkan.h>
 
-    void drawFrame();
-    void waitIdle() const { context.waitIdle(); }
+namespace NETAEngine {
 
-private:
-    void createPipeline();
+    class Renderer {
+    public:
+        Renderer(Window& window, VkInstance instance, VkSurfaceKHR surface);
+        ~Renderer();
 
-    RenderContext context;
+        // Quitamos copia
+        Renderer(const Renderer&) = delete;
+        Renderer& operator = (const Renderer&) = delete;
 
-    std::unique_ptr<RenderPass> renderPass;
-    std::unique_ptr<PipelineLayout> pipelineLayout;
-    std::unique_ptr<GraphicsPipeline> graphicsPipeline;
-    std::unique_ptr<FrameManager> frameManager;
-    std::unique_ptr<CommandManager> commandManager;
+        void drawFrame();
+        void waitIdle() const { context.waitIdle(); }
 
-    Window& window;
-};
+    private:
+        void initVulkan();
+        void createPipeline();
+        void createCommandSystem();
+        void createSyncObjects();
+
+        void recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex);
+
+        RenderContext context;
+        Window& window;
+
+        // Recursos del pipeline (no es el renderpass)
+        std::unique_ptr<PipelineLayout> pipelineLayout;
+        std::unique_ptr<GraphicsPipeline> graphicsPipeline;
+
+        // Recursos de commando
+        VkCommandPool commandPool = VK_NULL_HANDLE;
+        std::vector<VkCommandBuffer> commandBuffers;
+
+        // Syncronizacion
+        const int MAX_FRAMES_IN_FLIGHT = 3;
+        uint32_t currentFrame = 0;
+
+        std::vector<VkSemaphore> imageAvailableSemaphores;
+        std::vector<VkSemaphore> renderFinishedSemaphores;
+        std::vector<VkFence> inFlightFences;
+        std::vector<VkFence> imagesInFlight;
+    };
+}

@@ -1,6 +1,7 @@
 #include "RenderContext.h"
 #include "Vulkan/Utils/ErrorHandling.h"
-#include <stdexcept>
+
+namespace NETAEngine {
 
 RenderContext::RenderContext(Window& win, VkInstance inst, VkSurfaceKHR surf)
     : window(win)
@@ -8,7 +9,6 @@ RenderContext::RenderContext(Window& win, VkInstance inst, VkSurfaceKHR surf)
     physicalDeviceManager.pickPhysicalDevice(inst, surf);
     physicalDeviceManager.createLogicalDevice();
 
-    // Esto es un tip para cuando lo veas en el futuro.
     // Siempre pasa los punteros de funcion de forma explicita.
     // Esto hace que VMA pueda trabajar si usas despues un
     // loader dinamico.
@@ -25,14 +25,12 @@ RenderContext::RenderContext(Window& win, VkInstance inst, VkSurfaceKHR surf)
 
     VK_CHECK(vmaCreateAllocator(&allocatorInfo, &allocator));
 
-    queueFamilies = physicalDeviceManager.getQueueFamilyIndices();  // Guardamos copia
-
     swapChain = std::make_unique<VulkanSwapChain>(
         physicalDeviceManager.getPhysicalDevice(),
         physicalDeviceManager.getDevice(),
         surf,
         window.getWindow(),
-        queueFamilies
+        physicalDeviceManager.getQueueFamilyIndices()
     );
 }
 
@@ -45,6 +43,18 @@ RenderContext::~RenderContext() {
     if (allocator != VK_NULL_HANDLE) {
         vmaDestroyAllocator(allocator);
     }
-    // 3. Destruye el dispositivo logico, lo ultimo.
-    physicalDeviceManager.cleanup();
+}
+
+VkQueue RenderContext::getGraphicsQueue() const {
+    VkQueue queue;
+    vkGetDeviceQueue(getDevice(), getQueueFamilies().graphicsFamily.value(), 0, &queue);
+    return queue;
+}
+
+VkQueue RenderContext::getPresentQueue() const {
+    VkQueue queue;
+    vkGetDeviceQueue(getDevice(), getQueueFamilies().presentFamily.value(), 0, &queue);
+    return queue;
+}
+
 }

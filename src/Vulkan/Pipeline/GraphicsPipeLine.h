@@ -7,8 +7,8 @@ public:
     GraphicsPipeline(
         VkDevice device,
         VkExtent2D swapchainExtent,
-        VkRenderPass renderPass,
-        VkPipelineLayout pipelineLayout,
+        VkFormat colorFormat,
+        VkPipelineLayout layout,
         const char* vertFile,
         const char* fragFile
     );
@@ -19,5 +19,5 @@ public:
 
 private:
     VkDevice device;
-    VkPipeline pipeline;
+    VkPipeline pipeline = VK_NULL_HANDLE;
 };

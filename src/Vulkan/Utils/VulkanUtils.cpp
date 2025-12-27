@@ -2,7 +2,6 @@
 #include "ErrorHandling.h"
 #include <fstream>
 #include <iostream>
-#include <stdexcept>
 #include <cstring>
 #include <vector>
 
@@ -82,7 +81,7 @@ namespace NETAEngine {
             VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
             VkDebugUtilsMessageTypeFlagsEXT messageType,
             const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-            void* pUserData) {
+            [[maybe_unused]] void* pUserData) {
 
             if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
                 std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;

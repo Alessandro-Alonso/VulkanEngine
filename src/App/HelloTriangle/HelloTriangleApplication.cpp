@@ -5,9 +5,6 @@
 #include "Vulkan/Utils/ErrorHandling.h"
 #include "Vulkan/Utils/VulkanUtils.h"
 
-#include <stdexcept>
-#include <iostream>
-
 namespace NETAEngine {
 
     HelloTriangleApplication::HelloTriangleApplication() = default;
@@ -39,8 +36,8 @@ namespace NETAEngine {
 
     void HelloTriangleApplication::initVulkan() {
         createInstance();
-        createSurface();
         setupDebugMessenger();
+        createSurface();
 
         m_renderer = std::make_unique<Renderer>(m_window, m_instance, m_surface);
     }
@@ -65,9 +62,9 @@ namespace NETAEngine {
 
         VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        appInfo.pApplicationName = "Neage Engine (NorEsp Advanced Game Engine)";
+        appInfo.pApplicationName = "NETA Engine";
         appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        appInfo.pEngineName = "Neage Engine (NorEsp Advanced Game Engine)";
+        appInfo.pEngineName = "NETA Engine";
         appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
         appInfo.apiVersion = VK_API_VERSION_1_3;
 

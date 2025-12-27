@@ -1,7 +1,6 @@
 #include "ShaderModule.h"
 #include "Vulkan\Utils\ErrorHandling.h"
 #include <fstream>
-#include <stdexcept>
 
 ShaderModule::ShaderModule(VkDevice device, const std::string& filepath)
     : device(device)

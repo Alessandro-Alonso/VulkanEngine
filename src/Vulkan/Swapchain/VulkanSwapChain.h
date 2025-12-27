@@ -3,16 +3,11 @@
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 #include <vector>
-#include <optional>
-#include <set>
-#include <stdexcept>
 #include <algorithm>
-#include <limits>
-#include <cstdint>
 #include "Vulkan/Utils/VulkanTypes.h"
 
 struct SwapChainSupportDetails {
-    VkSurfaceCapabilitiesKHR capabilities;
+    VkSurfaceCapabilitiesKHR capabilities{};
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> presentModes;
 };
@@ -24,13 +19,15 @@ public:
 
     void cleanup();
 
+    VkSwapchainKHR getSwapChain() const { return swapChain; }
     VkFormat getImageFormat() const { return swapChainImageFormat; }
     VkExtent2D getExtent() const { return swapChainExtent; }
-    VkSwapchainKHR getSwapChain() const { return swapChain; }
-    const std::vector<VkImage>& getImages() const { return swapChainImages; }
-    const std::vector<VkImageView>& getImageViews() const { return swapChainImageViews; }
-    std::vector<VkImageView> swapChainImageViews;
 
+    // Accessor de ayuda para el dynamic rendering
+    VkImageView getImageView(uint32_t index) const { return swapChainImageViews[index]; }
+    VkImage getImage(uint32_t index) const { return swapChainImages[index]; }
+
+    uint32_t getImageCount() const { return static_cast<uint32_t>(swapChainImages.size()); }
 
 private:
     VkPhysicalDevice physicalDevice;
@@ -40,19 +37,18 @@ private:
     QueueFamilyIndices queueIndices;
 
     VkSwapchainKHR swapChain = VK_NULL_HANDLE;
-    std::vector<VkImage> swapChainImages;
     VkFormat swapChainImageFormat;
     VkExtent2D swapChainExtent;
 
-private:
-    void createSwapChain();
+    std::vector<VkImage> swapChainImages;
+    std::vector<VkImageView> swapChainImageViews;
+
 
     // Ayudas
+    void createSwapChain();
+    void createImageViews();
     SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-
-    void createImageViews();
-
 };

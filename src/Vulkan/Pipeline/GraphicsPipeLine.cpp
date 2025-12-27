@@ -1,12 +1,11 @@
 #include "GraphicsPipeLine.h"
 #include "Vulkan/Shaders/ShaderModule.h"
 #include "Vulkan/Utils/ErrorHandling.h"
-#include <stdexcept>
 
 GraphicsPipeline::GraphicsPipeline(
     VkDevice device,
     VkExtent2D extent,
-    VkRenderPass renderPass,
+    VkFormat colorAttachmentFormat,
     VkPipelineLayout pipelineLayout,
     const char* vertFile,
     const char* fragFile)
@@ -29,8 +28,6 @@ GraphicsPipeline::GraphicsPipeline(
     fragStage.pName = "main";
 
     VkPipelineShaderStageCreateInfo stages[] = { vertStage, fragStage };
-
-    // Funciones Arregladas:
 
     // Input del Vertex (De momento ninguno)
     VkPipelineVertexInputStateCreateInfo vertexInput{};
@@ -103,22 +100,28 @@ GraphicsPipeline::GraphicsPipeline(
     depthStencil.depthTestEnable = VK_FALSE;
     depthStencil.depthWriteEnable = VK_FALSE;
 
+    VkPipelineRenderingCreateInfo renderingCreateInfo{};
+    renderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    renderingCreateInfo.colorAttachmentCount = 1;
+    renderingCreateInfo.pColorAttachmentFormats = &colorAttachmentFormat;
+
     // Creacion final del proceso
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    info.pInputAssemblyState = &inputAssembly;
+    info.pMultisampleState = &multisampling;
+    info.pDepthStencilState = &depthStencil;
+    info.pRasterizationState = &rasterizer;
+    info.pVertexInputState = &vertexInput;
+    info.pViewportState = &viewportState;
     info.pDynamicState = &dynamicState;
     info.pColorBlendState = &blending;
-    info.pDepthStencilState = &depthStencil;
-    info.stageCount = 2;
-    info.pStages = stages;
-    info.pVertexInputState = &vertexInput;
-    info.pInputAssemblyState = &inputAssembly;
-    info.pViewportState = &viewportState;
-    info.pRasterizationState = &rasterizer;
-    info.pMultisampleState = &multisampling;
     info.pColorBlendState = &blending;
+    info.pNext = &renderingCreateInfo;
+    info.renderPass = VK_NULL_HANDLE;
     info.layout = pipelineLayout;
-    info.renderPass = renderPass;
+    info.pStages = stages;
+    info.stageCount = 2;
     
     // Error Handling.
     VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &pipeline));

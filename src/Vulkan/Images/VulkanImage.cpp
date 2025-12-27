@@ -1,7 +1,6 @@
 #include "VulkanImage.h"
 #include "Vulkan\Utils\ErrorHandling.h"
 #include "Vulkan\Utils\vk_mem_alloc.h"
-#include <stdexcept>
 
 VulkanImage::VulkanImage(
     VmaAllocator allocator,

@@ -1,6 +1,5 @@
 #include "VulkanImageView.h"
 #include "Vulkan\Utils\ErrorHandling.h"
-#include <stdexcept>
 
 VulkanImageView::VulkanImageView(
     VkDevice device,
