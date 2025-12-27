@@ -2,7 +2,7 @@
 #include <iostream>
 
 int main() {
-    HelloTriangleApplication app;
+    NETAEngine::HelloTriangleApplication app;
 
     try {
         app.run();

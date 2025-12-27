@@ -1,29 +1,47 @@
 #pragma once
-#include <vulkan/vulkan.h>
+
 #include "Core/Window/Window.h"
 #include "Renderer/Renderer.h"
 
-class HelloTriangleApplication {
-public:
-    void run();
+#include <vulkan/vulkan.h>
+#include <memory>
+#include <vector>
 
-private:
-    void initWindow();
-    void initVulkan();
-    void mainLoop();
-    void cleanup();
+namespace NETAEngine {
 
-    void createInstance();
-    void setupDebugMessenger();
-    void createSurface();
-    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+    class HelloTriangleApplication {
+    public:
+        HelloTriangleApplication();
+        ~HelloTriangleApplication();
 
-    Window window;
-    Renderer* renderer = nullptr;
+        HelloTriangleApplication(const HelloTriangleApplication&) = delete;
+        HelloTriangleApplication& operator=(const HelloTriangleApplication&) = delete;
 
-    VkInstance instance = VK_NULL_HANDLE;
-    VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
+        void run();
+    private:
+        void initVulkan();
+        void mainLoop();
 
-    const bool enableValidationLayers = true;
-};
+        // Contextos de ayuda de Vulkan
+        void createInstance();
+        void setupDebugMessenger();
+        void createSurface();
+        void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+
+        // Systemas centrales
+        Window m_window;
+        std::unique_ptr<Renderer> m_renderer;
+
+        // Handles de vulkan
+        VkInstance m_instance = VK_NULL_HANDLE;
+        VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
+        VkSurfaceKHR m_surface = VK_NULL_HANDLE;
+
+        // Configuracion, layers de validacion.
+        const bool m_enableValidationLayers = true;
+
+        const std::vector<const char*> m_validationLayers = {
+            "VK_LAYER_KHRONOS_validation"
+        };
+    };
+}
