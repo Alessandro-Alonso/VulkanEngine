@@ -24,12 +24,15 @@ public:
     VkQueue getPresentQueue() const;
 
     void waitIdle() const { vkDeviceWaitIdle(getDevice()); }
+    void recreateSwapChain();
 
 private:
     Window& window;
     PhysicalDevice physicalDeviceManager;
     std::unique_ptr<VulkanSwapChain> swapChain;
     VmaAllocator allocator;
+
+    VkSurfaceKHR m_surface;
 };
 
 }

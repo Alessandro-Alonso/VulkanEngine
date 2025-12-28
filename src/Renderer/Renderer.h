@@ -22,6 +22,8 @@ namespace NETAEngine {
         void drawFrame();
         void waitIdle() const { context.waitIdle(); }
 
+        void recreateSwapChain();
+
     private:
         void initVulkan();
         void createPipeline();

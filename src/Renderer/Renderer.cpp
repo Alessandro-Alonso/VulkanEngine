@@ -170,7 +170,9 @@ namespace NETAEngine {
         vkCmdSetViewport(cmd, 0, 1, &viewport);
 
         VkRect2D scissor{};
+        scissor.offset = { 0, 0 };
         scissor.extent = context.getSwapChain()->getExtent();
+
         vkCmdSetScissor(cmd, 0, 1, &scissor);
 
         // Dibuja
@@ -195,7 +197,7 @@ namespace NETAEngine {
 
         // Manejo de resize / out of date (lo agregare despues)
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-            // recreateSwapChain();
+            recreateSwapChain();
             return;
         }
         else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -246,13 +248,31 @@ namespace NETAEngine {
 
         result = vkQueuePresentKHR(context.getPresentQueue(), &presentInfo);
 
-        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            // recreateSwapChain();
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.wasResized()) {
+            recreateSwapChain();
         }
         else if (result != VK_SUCCESS) {
             throw std::runtime_error("Failed to present swap chain image!");
         }
 
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    }
+
+    void Renderer::recreateSwapChain() {
+        int width = 0, height = 0;
+        glfwGetFramebufferSize(window.getWindow(), &width, &height);
+
+        while (width == 0 || height == 0) {
+            glfwGetFramebufferSize(window.getWindow(), &width, &height);
+            glfwWaitEvents();
+        }
+
+        vkDeviceWaitIdle(context.getDevice());
+
+        context.recreateSwapChain();
+
+        createPipeline();
+
+        window.resetWindowResizedFlag();
     }
 }

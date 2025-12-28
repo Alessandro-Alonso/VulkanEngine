@@ -7,10 +7,10 @@ set(CMAKE_CXX_STANDARD 20)
 file(GLOB_RECURSE ENGINE_SOURCES src/*.cpp)
 file(GLOB_RECURSE IMGUI_SOURCES imgui/*.cpp)
 
-add_executable(VulkanEngine ${ENGINE_SOURCES})
+add_executable(VulkanEngine ${ENGINE_SOURCES} "src/Assets/Mesh.h" "src/Assets/Mesh.cpp")
 target_include_directories(VulkanEngine PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-add_library(imgui STATIC ${IMGUI_SOURCES})
+add_library(imgui STATIC ${IMGUI_SOURCES} "src/Assets/Mesh.h" "src/Assets/Mesh.cpp")
 target_include_directories(imgui PUBLIC imgui imgui/backends)
 target_link_libraries(imgui PUBLIC Vulkan::Vulkan glfw)
 target_link_libraries(VulkanEngine PRIVATE imgui)

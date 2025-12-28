@@ -1,6 +1,11 @@
 #include "Window.h"
 #include <stdexcept>
 
+void Window::framebufferResizeCallback(GLFWwindow* window, int width, int heigth) {
+    auto app = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+    app->framebufferResized = true;
+}
+
 // Ventana de GLFW, donde se renderiza la aplicacion.
 void Window::initWindow() {
     glfwInit();
@@ -12,8 +17,11 @@ void Window::initWindow() {
         glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_FALSE);
     #endif
     
-    window = glfwCreateWindow(WIDTH, HEIGHT, "NETA Engine", nullptr, nullptr);
+    window = glfwCreateWindow(WIDTH, HEIGHT, "Hello Triangle", nullptr, nullptr);
     if (!window) throw std::runtime_error("Failed to create GLFW window!");
+
+    glfwSetWindowUserPointer(window, this);
+    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 
 }
 

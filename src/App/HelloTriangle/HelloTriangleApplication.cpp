@@ -45,7 +45,12 @@ namespace NETAEngine {
     void HelloTriangleApplication::mainLoop() {
         while (!glfwWindowShouldClose(m_window.getWindow())) {
             glfwPollEvents();
-            if (m_renderer) {
+
+            int width, height;
+            glfwGetFramebufferSize(m_window.getWindow(), &width, &height);
+
+            // Solo renderiza la ventana si es visible. Es decir, si no esta minimizada.
+            if (width > 0 && height > 0 && m_renderer) {
                 m_renderer->drawFrame();
             }
         }

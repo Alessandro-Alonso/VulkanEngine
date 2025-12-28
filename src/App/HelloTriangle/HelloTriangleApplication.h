@@ -39,7 +39,11 @@ namespace NETAEngine {
 
         // Configuracion layers de validacion. Para debugging, te dice los problemas, errores o fallos que tienes basicamente. En la version release, se quita.
         // ESTO BAJA UN 50% LOS FPS. RECUERDA.
-        const bool m_enableValidationLayers = true;
+        #ifdef NDEBUG
+                const bool m_enableValidationLayers = false;
+        #else
+                const bool m_enableValidationLayers = true;
+        #endif
 
         const std::vector<const char*> m_validationLayers = {
             "VK_LAYER_KHRONOS_validation"

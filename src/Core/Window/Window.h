@@ -11,6 +11,12 @@ public:
     void cleanup();
     GLFWwindow* getWindow() const { return window; }
 
+    bool wasResized() { return framebufferResized; }
+    void resetWindowResizedFlag() { framebufferResized = false; }
+
 private:
+    static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+
     GLFWwindow* window = nullptr;
+    bool framebufferResized = false;
 };
