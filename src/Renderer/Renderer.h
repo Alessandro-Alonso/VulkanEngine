@@ -42,7 +42,7 @@ namespace NETAEngine {
         std::vector<VkCommandBuffer> commandBuffers;
 
         // Syncronizacion
-        const int MAX_FRAMES_IN_FLIGHT = 3;
+        const int MAX_FRAMES_IN_FLIGHT = 2;
         uint32_t currentFrame = 0;
 
         std::vector<VkSemaphore> imageAvailableSemaphores;

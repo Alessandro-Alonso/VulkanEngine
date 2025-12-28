@@ -38,7 +38,7 @@ namespace NETAEngine {
         VkSurfaceKHR m_surface = VK_NULL_HANDLE;
 
         // Configuracion, layers de validacion.
-        const bool m_enableValidationLayers = true;
+        const bool m_enableValidationLayers = false;
 
         const std::vector<const char*> m_validationLayers = {
             "VK_LAYER_KHRONOS_validation"

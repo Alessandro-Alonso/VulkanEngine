@@ -47,16 +47,26 @@ namespace NETAEngine {
     }
 
     Renderer::~Renderer() {
-        context.waitIdle();
         VkDevice device = context.getDevice();
 
-        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        // Destruir todos los renderFinishedSemaphores (uno por imagen del swapchain)
+        for (VkSemaphore semaphore : renderFinishedSemaphores) {
+            if (semaphore != VK_NULL_HANDLE) {
+                vkDestroySemaphore(device, semaphore, nullptr);
+            }
+        }
+
+        // Destruir imageAvailableSemaphores y fences (uno por frame in flight)
+        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
             vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
-            vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
             vkDestroyFence(device, inFlightFences[i], nullptr);
         }
 
-        vkDestroyCommandPool(device, commandPool, nullptr);
+        // Destruir command pool (libera todos los command buffers)
+        if (commandPool != VK_NULL_HANDLE) {
+            vkDestroyCommandPool(device, commandPool, nullptr);
+            commandPool = VK_NULL_HANDLE;
+        }
     }
 
     void Renderer::initVulkan() {
@@ -88,22 +98,23 @@ namespace NETAEngine {
         VK_CHECK(vkCreateCommandPool(context.getDevice(), &poolInfo, nullptr, &commandPool));
 
         commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
         VkCommandBufferAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
         allocInfo.commandPool = commandPool;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
+        allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
 
         VK_CHECK(vkAllocateCommandBuffers(context.getDevice(), &allocInfo, commandBuffers.data()));
 
     }
 
     void Renderer::createSyncObjects() {
-        imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-        inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+        uint32_t swapchainImageCount = context.getSwapChain()->getImageCount();
 
-        // Resize imagesInFlight to match swapchain image count
-        imagesInFlight.resize(context.getSwapChain()->getImageCount(), VK_NULL_HANDLE);
+        imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+        inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+        renderFinishedSemaphores.resize(swapchainImageCount);
+        imagesInFlight.resize(swapchainImageCount, VK_NULL_HANDLE);
 
         VkSemaphoreCreateInfo semaphoreInfo{};
         semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -112,12 +123,15 @@ namespace NETAEngine {
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-        VkDevice device = context.getDevice();
+        // Creamos imageAvailable y fences (uno por frame in flight)
+        for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+            VK_CHECK(vkCreateSemaphore(context.getDevice(), &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]));
+            VK_CHECK(vkCreateFence(context.getDevice(), &fenceInfo, nullptr, &inFlightFences[i]));
+        }
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]));
-            VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]));
-            VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]));
+        // Creamos renderFinishedSemaphores (uno por cada imagen del swapchain)
+        for (uint32_t i = 0; i < swapchainImageCount; ++i) {
+            VK_CHECK(vkCreateSemaphore(context.getDevice(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]));
         }
     }
 
@@ -172,48 +186,35 @@ namespace NETAEngine {
     }
 
     void Renderer::drawFrame() {
-        VkDevice device = context.getDevice();
-        VkSwapchainKHR swapChain = context.getSwapChain()->getSwapChain();
-
-        VK_CHECK(vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
+        // Esperamos al fence del frame actual (CPU no avance más de MAX_FRAMES_IN_FLIGHT)
+        VK_CHECK(vkWaitForFences(context.getDevice(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
 
         uint32_t imageIndex;
-        VkResult result = vkAcquireNextImageKHR(
-            device,
-            swapChain,
-            UINT64_MAX,
-            imageAvailableSemaphores[currentFrame],
-            VK_NULL_HANDLE,
-            &imageIndex
-        );
+        VkResult result = vkAcquireNextImageKHR(context.getDevice(), context.getSwapChain()->getSwapChain(),
+            UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
-        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            // TODO: Trigger swapchain recreation (you'll add this later)
-            // For now, just return to avoid crashing
+        // Manejo de resize / out of date (lo añadirás después, por ahora solo si falla)
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+            // recreateSwapChain();  // lo implementarás pronto
             return;
         }
-        else if (result != VK_SUCCESS) {
-            throw std::runtime_error("Failed to acquire swapchain image!");
+        else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+            throw std::runtime_error("Failed to acquire swap chain image!");
         }
 
-        // Espera si la imagen del swapchain especifico esta en uso de un previo frame
+        // Si la imagen ya está en uso por un frame anterior, esperamos
         if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-            VK_CHECK(vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX));
+            VK_CHECK(vkWaitForFences(context.getDevice(), 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX));
         }
-
-        // Esta imagen esta ahora protegida del frame actual
         imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
-        // Resetea el fence por este frame.
-        VK_CHECK(vkResetFences(device, 1, &inFlightFences[currentFrame]));
+        // Reseteamos el fence para este frame
+        VK_CHECK(vkResetFences(context.getDevice(), 1, &inFlightFences[currentFrame]));
 
-        // Resetea los command buffer grabados
-        VK_CHECK(vkResetCommandBuffer(commandBuffers[currentFrame], 0));
-
-        // Graba los nuevos comandos
+        // Grabamos command buffer
         recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
-        // Manda los command buffer
+        // Submit
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -222,40 +223,34 @@ namespace NETAEngine {
         submitInfo.waitSemaphoreCount = 1;
         submitInfo.pWaitSemaphores = waitSemaphores;
         submitInfo.pWaitDstStageMask = waitStages;
-
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
 
-        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+        // ¡Importante! Usamos renderFinishedSemaphores[imageIndex]
+        VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[imageIndex] };
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
-        VkQueue graphicsQueue;
-        vkGetDeviceQueue(device, context.getQueueFamilies().graphicsFamily.value(), 0, &graphicsQueue);
+        VK_CHECK(vkQueueSubmit(context.getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame]));
 
-        VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]));
-
-        // Presente
+        // Present
         VkPresentInfoKHR presentInfo{};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores;
+        presentInfo.pWaitSemaphores = signalSemaphores;  // mismo semaphore que arriba
 
-        VkSwapchainKHR swapChains[] = { swapChain };
+        VkSwapchainKHR swapChains[] = { context.getSwapChain()->getSwapChain() };
         presentInfo.swapchainCount = 1;
         presentInfo.pSwapchains = swapChains;
         presentInfo.pImageIndices = &imageIndex;
 
-        VkQueue presentQueue;
-        vkGetDeviceQueue(device, context.getQueueFamilies().presentFamily.value(), 0, &presentQueue);
-
-        result = vkQueuePresentKHR(presentQueue, &presentInfo);
+        result = vkQueuePresentKHR(context.getPresentQueue(), &presentInfo);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-            return;
+            // recreateSwapChain();
         }
         else if (result != VK_SUCCESS) {
-            throw std::runtime_error("Failed to present swapchain image!");
+            throw std::runtime_error("Failed to present swap chain image!");
         }
 
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
