@@ -37,8 +37,9 @@ namespace NETAEngine {
         VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
         VkSurfaceKHR m_surface = VK_NULL_HANDLE;
 
-        // Configuracion, layers de validacion.
-        const bool m_enableValidationLayers = false;
+        // Configuracion layers de validacion. Para debugging, te dice los problemas, errores o fallos que tienes basicamente. En la version release, se quita.
+        // ESTO BAJA UN 50% LOS FPS. RECUERDA.
+        const bool m_enableValidationLayers = true;
 
         const std::vector<const char*> m_validationLayers = {
             "VK_LAYER_KHRONOS_validation"

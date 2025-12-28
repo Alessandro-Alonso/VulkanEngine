@@ -139,7 +139,7 @@ namespace NETAEngine {
         VkCommandBufferBeginInfo beginInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
 
-        VkImage swapChainImage = context.getSwapChain()->getImage(imageIndex); // i need to put getImage() on my swapchain class.
+        VkImage swapChainImage = context.getSwapChain()->getImage(imageIndex);
 
         imageBarrier(cmd, swapChainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -162,7 +162,7 @@ namespace NETAEngine {
 
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->get());
 
-        // Setup del stado dynamico
+        // Setup del estado dynamico
         VkViewport viewport{};
         viewport.width = (float)context.getSwapChain()->getExtent().width;
         viewport.height = (float)context.getSwapChain()->getExtent().height;
@@ -176,7 +176,7 @@ namespace NETAEngine {
         // Dibuja
         vkCmdDraw(cmd, 3, 1, 0, 0);
 
-        // Termina el render
+        // Terminar el render
         vkCmdEndRendering(cmd);
 
         // Transiciona las imagenes al presente
@@ -186,23 +186,23 @@ namespace NETAEngine {
     }
 
     void Renderer::drawFrame() {
-        // Esperamos al fence del frame actual (CPU no avance más de MAX_FRAMES_IN_FLIGHT)
+        // Esperamos al fence del frame actual (CPU no avance mas de MAX_FRAMES_IN_FLIGHT)
         VK_CHECK(vkWaitForFences(context.getDevice(), 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX));
 
         uint32_t imageIndex;
         VkResult result = vkAcquireNextImageKHR(context.getDevice(), context.getSwapChain()->getSwapChain(),
             UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
-        // Manejo de resize / out of date (lo añadirás después, por ahora solo si falla)
+        // Manejo de resize / out of date (lo agregare despues)
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-            // recreateSwapChain();  // lo implementarás pronto
+            // recreateSwapChain();
             return;
         }
         else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
             throw std::runtime_error("Failed to acquire swap chain image!");
         }
 
-        // Si la imagen ya está en uso por un frame anterior, esperamos
+        // Si la imagen ya esta en uso por un frame anterior, esperamos
         if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
             VK_CHECK(vkWaitForFences(context.getDevice(), 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX));
         }
@@ -214,7 +214,7 @@ namespace NETAEngine {
         // Grabamos command buffer
         recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
-        // Submit
+        // hacemos Submit
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -226,18 +226,18 @@ namespace NETAEngine {
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
 
-        // ¡Importante! Usamos renderFinishedSemaphores[imageIndex]
+        // Usamos renderFinishedSemaphores[imageIndex]
         VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[imageIndex] };
         submitInfo.signalSemaphoreCount = 1;
         submitInfo.pSignalSemaphores = signalSemaphores;
 
         VK_CHECK(vkQueueSubmit(context.getGraphicsQueue(), 1, &submitInfo, inFlightFences[currentFrame]));
 
-        // Present
+        // Presente
         VkPresentInfoKHR presentInfo{};
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = signalSemaphores;  // mismo semaphore que arriba
+        presentInfo.pWaitSemaphores = signalSemaphores;
 
         VkSwapchainKHR swapChains[] = { context.getSwapChain()->getSwapChain() };
         presentInfo.swapchainCount = 1;

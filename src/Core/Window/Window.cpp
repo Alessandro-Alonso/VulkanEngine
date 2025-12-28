@@ -12,7 +12,7 @@ void Window::initWindow() {
         glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_FALSE);
     #endif
     
-    window = glfwCreateWindow(WIDTH, HEIGHT, "VULKAN ENGINE", nullptr, nullptr);
+    window = glfwCreateWindow(WIDTH, HEIGHT, "NETA Engine", nullptr, nullptr);
     if (!window) throw std::runtime_error("Failed to create GLFW window!");
 
 }
