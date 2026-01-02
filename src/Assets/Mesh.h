@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 
-#include "../Vulkan/Utils/VulkanTypes.h"
+#include "Vulkan/Utils/VulkanTypes.h"
 
 namespace NETAEngine {
 

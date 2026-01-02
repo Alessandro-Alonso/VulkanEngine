@@ -19,7 +19,7 @@ namespace NETAEngine {
 
             size_t fileSize = (size_t)file.tellg();
 
-            // Tenemos que ver que la textura no pase de 4GB. Muchas Gpus estan puestas a 4GB, por los 32 bits de hardware. Incluso si tienes una 24gb RTX 4090 no te dejara.
+            // Tenemos que ver que la textura no pase de 4GB. Muchas Gpus estan limitadas a 4GB, por los 32 bits de hardware. Incluso si tienes una 24gb RTX 4090 no te dejara.
             // Para que una imagen pese como minimo 4GB, tendria que ser 32,768 x 32,768 pixeles en un formato RGBA8, unos 4 bytes cada pixel. Es practicamente imposible que lo pases.
             if (fileSize > 100 * 1024 * 1024) {
                 GE_CHECK(false, "File to large to load into memory buffer: " + filename);

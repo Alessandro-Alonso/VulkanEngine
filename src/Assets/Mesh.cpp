@@ -1,6 +1,7 @@
 #include "Mesh.h"
 #include <cstring>
 
+
 namespace NETAEngine {
 
     VkVertexInputBindingDescription Vertex::getBindingDescription() {
@@ -30,10 +31,10 @@ namespace NETAEngine {
     void Mesh::upload(VmaAllocator allocator, VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool) {
         if (_vertices.empty()) return;
 
-        // 1. Calcular tamaño en bytes
+        // Calcular tamaño en bytes
         size_t bufferSize = sizeof(Vertex) * _vertices.size();
 
-        // 2. Crear STAGING BUFFER (CPU Visible)
+        // Crear STAGING BUFFER (CPU Visible)
         // Este es el buffer temporal donde escribiremos desde C++
         VkBufferCreateInfo stagingBufferInfo{};
         stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -47,13 +48,13 @@ namespace NETAEngine {
         vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingAllocInfo,
             &stagingBuffer._buffer, &stagingBuffer._allocation, nullptr);
 
-        // 3. Copiar datos (Map -> Memcpy -> Unmap)
+        // Copiar datos (Map -> Memcpy -> Unmap)
         void* data;
         vmaMapMemory(allocator, stagingBuffer._allocation, &data);
         memcpy(data, _vertices.data(), bufferSize);
         vmaUnmapMemory(allocator, stagingBuffer._allocation);
 
-        // 4. Crear VERTEX BUFFER (GPU Local - Muy Rapido)
+        // Crear VERTEX BUFFER (GPU Local - Muy Rapido)
         // Aqui es donde viviran los datos permanentemente
         VkBufferCreateInfo vertexBufferInfo{};
         vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -62,12 +63,12 @@ namespace NETAEngine {
         vertexBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
         VmaAllocationCreateInfo vertexAllocInfo{};
-        vertexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY; // Solo la GPU toca esto
+        vertexAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
         vmaCreateBuffer(allocator, &vertexBufferInfo, &vertexAllocInfo,
             &_vertexBuffer._buffer, &_vertexBuffer._allocation, nullptr);
 
-        // 5. Ejecutar comando de COPIA (Immediate Submit)
+        // Ejecutar comando de COPIA (Immediate Submit)
         // Creamos un CommandBuffer temporal solo para esta transferencia
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -100,7 +101,7 @@ namespace NETAEngine {
         vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
         vkQueueWaitIdle(graphicsQueue); // Esperar a que termine la copia
 
-        // 6. Limpieza
+        // Limpieza
         vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
         vmaDestroyBuffer(allocator, stagingBuffer._buffer, stagingBuffer._allocation);
     }

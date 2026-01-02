@@ -1,6 +1,8 @@
 #include "Renderer.h"
 #include "Vulkan/Platform/FileSystem.h"
 #include "Vulkan/Utils/ErrorHandling.h"
+#include "Vulkan/Platform/FileSystem.h"
+
 #include <stdexcept>
 
 namespace NETAEngine {
@@ -77,14 +79,15 @@ namespace NETAEngine {
     }
 
     void Renderer::createPipeline() {
-        std::string exePath = Platform::GetExecutableDirectory();
+        std::string exePath = Filesystem::getExecutableDirectory().string();
+
         graphicsPipeline = std::make_unique<GraphicsPipeline>(
             context.getDevice(),
             context.getSwapChain()->getExtent(),
             context.getSwapChain()->getImageFormat(),
             pipelineLayout->get(),
-            (exePath + "/Vulkan/Shaders/vert.spv").c_str(),
-            (exePath + "/Vulkan/Shaders/frag.spv").c_str()
+            (exePath + "/Shaders/vert.spv").c_str(),
+            (exePath + "/Shaders/frag.spv").c_str()
         );
     }
 

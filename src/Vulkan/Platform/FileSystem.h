@@ -1,8 +1,12 @@
 #pragma once
-#include <string>
 
-namespace Platform {
-    
-    std::string GetExecutableDirectory();
-    
+#include <string>
+#include <filesystem>
+
+namespace Filesystem {
+
+    std::filesystem::path getExecutableDirectory();
+
+    std::filesystem::path getResourcePath(const std::string& relativePath);
+
 }

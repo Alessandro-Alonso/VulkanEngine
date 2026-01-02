@@ -25,6 +25,8 @@ namespace NETAEngine {
         void recreateSwapChain();
 
     private:
+        static constexpr const char* SHADER_DIR = "Shaders";
+
         void initVulkan();
         void createPipeline();
         void createCommandSystem();

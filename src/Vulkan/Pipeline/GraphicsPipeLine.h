@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.h>
+#include "Vulkan/Shaders/ShaderModule.h"
 
 class GraphicsPipeline {
 public:
@@ -20,4 +21,7 @@ public:
 private:
     VkDevice device;
     VkPipeline pipeline = VK_NULL_HANDLE;
+
+    ShaderModule vertexShaderModule;
+    ShaderModule fragmentShaderModule;
 };

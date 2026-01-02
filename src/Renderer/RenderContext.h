@@ -9,30 +9,30 @@
 
 namespace NETAEngine {
 
-class RenderContext {
-public:
-    RenderContext(Window& window, VkInstance instance, VkSurfaceKHR surface);
-    ~RenderContext();
+    class RenderContext {
+    public:
+        RenderContext(Window& window, VkInstance instance, VkSurfaceKHR surface);
+        ~RenderContext();
    
-    VkDevice getDevice() const { return physicalDeviceManager.getDevice(); }
-    VkPhysicalDevice getPhysicalDevice() const { return physicalDeviceManager.getPhysicalDevice(); }
-    VulkanSwapChain* getSwapChain() const { return swapChain.get(); }
+        VkDevice getDevice() const { return physicalDeviceManager.getDevice(); }
+        VkPhysicalDevice getPhysicalDevice() const { return physicalDeviceManager.getPhysicalDevice(); }
+        VulkanSwapChain* getSwapChain() const { return swapChain.get(); }
 
-    QueueFamilyIndices getQueueFamilies() const { return physicalDeviceManager.getQueueFamilyIndices(); }
+        QueueFamilyIndices getQueueFamilies() const { return physicalDeviceManager.getQueueFamilyIndices(); }
 
-    VkQueue getGraphicsQueue() const;
-    VkQueue getPresentQueue() const;
+        VkQueue getGraphicsQueue() const;
+        VkQueue getPresentQueue() const;
 
-    void waitIdle() const { vkDeviceWaitIdle(getDevice()); }
-    void recreateSwapChain();
+        void waitIdle() const { vkDeviceWaitIdle(getDevice()); }
+        void recreateSwapChain();
 
-private:
-    Window& window;
-    PhysicalDevice physicalDeviceManager;
-    std::unique_ptr<VulkanSwapChain> swapChain;
-    VmaAllocator allocator;
+    private:
+        Window& window;
+        PhysicalDevice physicalDeviceManager;
+        std::unique_ptr<VulkanSwapChain> swapChain;
+        VmaAllocator allocator;
 
-    VkSurfaceKHR m_surface;
-};
+        VkSurfaceKHR m_surface;
+    };
 
 }

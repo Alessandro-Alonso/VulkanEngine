@@ -1,6 +1,8 @@
 #include "GraphicsPipeLine.h"
 #include "Vulkan/Shaders/ShaderModule.h"
 #include "Vulkan/Utils/ErrorHandling.h"
+#include <vulkan/vulkan.h>
+#include "Vulkan/Shaders/ShaderModule.h"
 
 GraphicsPipeline::GraphicsPipeline(
     VkDevice device,
@@ -9,22 +11,21 @@ GraphicsPipeline::GraphicsPipeline(
     VkPipelineLayout pipelineLayout,
     const char* vertFile,
     const char* fragFile)
-    : device(device)
+    : device(device),
+    vertexShaderModule(device, vertFile),
+    fragmentShaderModule(device, fragFile)
 {
-    ShaderModule vert(device, vertFile);
-    ShaderModule frag(device, fragFile);
-
     // Etapas de los shaders
     VkPipelineShaderStageCreateInfo vertStage{};
     vertStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vertStage.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertStage.module = vert.get();
+    vertStage.module = vertexShaderModule.get();
     vertStage.pName = "main";
 
     VkPipelineShaderStageCreateInfo fragStage{};
     fragStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     fragStage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragStage.module = frag.get();
+    fragStage.module = fragmentShaderModule.get();
     fragStage.pName = "main";
 
     VkPipelineShaderStageCreateInfo stages[] = { vertStage, fragStage };
