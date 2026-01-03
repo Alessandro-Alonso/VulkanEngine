@@ -5,6 +5,7 @@
 #include "Vulkan/Swapchain/VulkanSwapChain.h"
 #include "Vulkan/Utils/vk_mem_alloc.h"
 #include "Core/Window/Window.h"
+
 #include <memory>
 
 namespace NETAEngine {
@@ -25,6 +26,8 @@ namespace NETAEngine {
 
         void waitIdle() const { vkDeviceWaitIdle(getDevice()); }
         void recreateSwapChain();
+        
+        VmaAllocator getAllocator() const { return allocator; }
 
     private:
         Window& window;
