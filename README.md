@@ -1,6 +1,6 @@
 # [NETA Engine]
 
-![Vulkan](https://img.shields.io/badge/Vulkan-1.3-red) ![C++](https://img.shields.io/badge/C++-20-blue) ![License](https://img.shields.io/badge/License-MIT-green)
+![Vulkan](https://img.shields.io/badge/Vulkan-1.4-red) ![C++](https://img.shields.io/badge/C++-20-blue) ![License](https://img.shields.io/badge/License-MIT-green)
 
 > Note: This is an educational project developed to learn the Vulkan API and real-time rendering concepts. It is a work in progress.
 
