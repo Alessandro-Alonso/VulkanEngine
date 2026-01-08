@@ -19,6 +19,8 @@ public:
 private:
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
+    const char* generateRandomTitle();
+
     GLFWwindow* window = nullptr;
     bool framebufferResized = false;
 };
