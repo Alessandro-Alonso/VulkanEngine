@@ -62,8 +62,8 @@ set(ENGINE_SOURCES
     src/Renderer/RenderContext.cpp
     src/Core/Window/Window.cpp
     src/Vulkan/Device/PhysicalDevice.cpp
-    src/Vulkan/Images/VulkanImage.cpp
-    src/Vulkan/Images/VulkanImageView.cpp
+    
+    
     src/Vulkan/Pipeline/GraphicsPipeLine.cpp
     src/Vulkan/Pipeline/PipelineLayout.cpp
     src/Vulkan/Platform/FileSystem.cpp
@@ -73,6 +73,7 @@ set(ENGINE_SOURCES
     src/Vulkan/Utils/VulkanRAII.cpp
     src/Vulkan/Utils/VulkanUtils.cpp
     src/Vulkan/Shaders/ShaderModule.cpp
+    src/Vulkan/Images/AllocatedImage.cpp
 )
 
 add_executable(VulkanEngine ${ENGINE_SOURCES})
@@ -124,6 +125,8 @@ endfunction()
 # Compilar shaders, solo si han sido cambiados.
 compile_shader("shader.vert" "vert.spv")
 compile_shader("shader.frag" "frag.spv")
+compile_shader("fullscreen.vert" "fullscreen.spv")
+compile_shader("tonemapping.frag" "tonemapping.spv")
 
 # Copia los shaders compilados a la carpeta del ejecutable
 add_custom_command(

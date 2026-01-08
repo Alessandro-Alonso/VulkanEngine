@@ -82,10 +82,13 @@ void PhysicalDevice::queryDeviceCapabilities(VkPhysicalDevice vkPhysicalDevice) 
     VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES };
     VkPhysicalDeviceMeshShaderFeaturesEXT meshFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT };
     VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
+    VkPhysicalDeviceSynchronization2Features sync2Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES };
 
     indexingFeatures.pNext = &timelineFeatures;
     timelineFeatures.pNext = &meshFeatures;
     meshFeatures.pNext = &dynamicRenderingFeatures;
+    dynamicRenderingFeatures.pNext = &sync2Features;
+    sync2Features.pNext = nullptr;
 
     VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
     features2.pNext = &indexingFeatures;
@@ -96,6 +99,7 @@ void PhysicalDevice::queryDeviceCapabilities(VkPhysicalDevice vkPhysicalDevice) 
     m_capabilities.fillModeNonSolid = features2.features.fillModeNonSolid;
     m_capabilities.timelineSemaphores = timelineFeatures.timelineSemaphore;
     m_capabilities.dynamicRendering = dynamicRenderingFeatures.dynamicRendering;
+    m_capabilities.synchronization2 = sync2Features.synchronization2;
 
     m_capabilities.descriptorIndexing =
         indexingFeatures.runtimeDescriptorArray &&
@@ -142,8 +146,18 @@ void PhysicalDevice::createLogicalDevice() {
     VkPhysicalDeviceTimelineSemaphoreFeatures enabledTimeline{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES };
     VkPhysicalDeviceMeshShaderFeaturesEXT enabledMesh{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT };
     VkPhysicalDeviceDynamicRenderingFeatures enabledDynamicRendering{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
+    VkPhysicalDeviceSynchronization2Features enabledSync2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES };
 
     void* currentPNext = nullptr;
+
+    if (m_capabilities.synchronization2) {
+        enabledSync2.synchronization2 = VK_TRUE;
+        enabledSync2.pNext = currentPNext;
+        currentPNext = &enabledSync2;
+    }
+    else {
+        throw std::runtime_error("Synchronization2 not supported by GPU!");
+    }
 
     if (m_capabilities.dynamicRendering) {
         enabledDynamicRendering.dynamicRendering = VK_TRUE;
@@ -151,7 +165,7 @@ void PhysicalDevice::createLogicalDevice() {
         currentPNext = &enabledDynamicRendering;
     }
     else {
-        throw std::runtime_error("GPU does not support Dynamic Rendering! To fucking old gpu.");
+        throw std::runtime_error("GPU does not support Dynamic Rendering! Too fucking old gpu.");
     }
 
     if (m_capabilities.descriptorIndexing) {

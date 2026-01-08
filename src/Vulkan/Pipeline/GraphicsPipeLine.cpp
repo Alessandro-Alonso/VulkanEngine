@@ -8,6 +8,7 @@ GraphicsPipeline::GraphicsPipeline(
     VkDevice device,
     VkExtent2D extent,
     VkFormat colorAttachmentFormat,
+    VkFormat depthAttachmentFormat,
     VkPipelineLayout pipelineLayout,
     const char* vertFile,
     const char* fragFile)
@@ -15,7 +16,6 @@ GraphicsPipeline::GraphicsPipeline(
     vertexShaderModule(device, vertFile),
     fragmentShaderModule(device, fragFile)
 {
-    // Etapas de los shaders
     VkPipelineShaderStageCreateInfo vertStage{};
     vertStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vertStage.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -30,17 +30,14 @@ GraphicsPipeline::GraphicsPipeline(
 
     VkPipelineShaderStageCreateInfo stages[] = { vertStage, fragStage };
 
-    // Input del Vertex (De momento ninguno)
     VkPipelineVertexInputStateCreateInfo vertexInput{};
     vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
-    // Input Assembly
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-    // Ventana grafica y tijeras
     VkViewport viewport{};
     viewport.x = 0.f;
     viewport.y = 0.f;
@@ -50,7 +47,7 @@ GraphicsPipeline::GraphicsPipeline(
     viewport.maxDepth = 1.f;
 
     VkRect2D scissor{};
-    scissor.offset = {0,0};
+    scissor.offset = { 0,0 };
     scissor.extent = extent;
 
     VkPipelineViewportStateCreateInfo viewportState{};
@@ -60,32 +57,38 @@ GraphicsPipeline::GraphicsPipeline(
     viewportState.scissorCount = 1;
     viewportState.pScissors = &scissor;
 
-    // Rasterizar
+    // Rasterizacion
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.lineWidth = 1.0f;
 
-    // Multisampling
+    if (depthAttachmentFormat == VK_FORMAT_UNDEFINED) {
+        rasterizer.cullMode = VK_CULL_MODE_NONE;
+    }
+    else {
+        rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    }
+
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-    // Mezcla de colores
     VkPipelineColorBlendAttachmentState blendAttachment{};
-    blendAttachment.colorWriteMask = 
+    blendAttachment.colorWriteMask =
         VK_COLOR_COMPONENT_R_BIT |
         VK_COLOR_COMPONENT_G_BIT |
         VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
+    blendAttachment.blendEnable = VK_FALSE;
 
     VkPipelineColorBlendStateCreateInfo blending{};
     blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     blending.attachmentCount = 1;
     blending.pAttachments = &blendAttachment;
 
+    // Estado dinamico
     std::vector<VkDynamicState> dynamicStates = {
         VK_DYNAMIC_STATE_VIEWPORT,
         VK_DYNAMIC_STATE_SCISSOR
@@ -96,15 +99,30 @@ GraphicsPipeline::GraphicsPipeline(
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
+    // Estado del depth stencil
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_FALSE;
-    depthStencil.depthWriteEnable = VK_FALSE;
+
+    // Desactiva el depth test si el formate no es conocido (Post-process)
+    if (depthAttachmentFormat == VK_FORMAT_UNDEFINED) {
+        depthStencil.depthTestEnable = VK_FALSE;
+        depthStencil.depthWriteEnable = VK_FALSE;
+        depthStencil.depthCompareOp = VK_COMPARE_OP_ALWAYS;
+    }
+    else {
+        depthStencil.depthTestEnable = VK_TRUE;
+        depthStencil.depthWriteEnable = VK_TRUE;
+        depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    }
+
+    depthStencil.depthBoundsTestEnable = VK_FALSE;
+    depthStencil.stencilTestEnable = VK_FALSE;
 
     VkPipelineRenderingCreateInfo renderingCreateInfo{};
     renderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     renderingCreateInfo.colorAttachmentCount = 1;
     renderingCreateInfo.pColorAttachmentFormats = &colorAttachmentFormat;
+    renderingCreateInfo.depthAttachmentFormat = depthAttachmentFormat;
 
     // Creacion final del proceso
     VkGraphicsPipelineCreateInfo info{};
@@ -116,7 +134,6 @@ GraphicsPipeline::GraphicsPipeline(
     info.pVertexInputState = &vertexInput;
     info.pViewportState = &viewportState;
     info.pDynamicState = &dynamicState;
-    info.pColorBlendState = &blending;
     info.pColorBlendState = &blending;
     info.pNext = &renderingCreateInfo;
     info.renderPass = VK_NULL_HANDLE;

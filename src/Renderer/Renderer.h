@@ -3,21 +3,14 @@
 #include "RenderContext.h"
 #include "Vulkan/Pipeline/PipelineLayout.h"
 #include "Vulkan/Pipeline/GraphicsPipeLine.h"
-#include "Vulkan\Utils\VulkanTypes.h"
+#include "Vulkan/Utils/VulkanTypes.h"
+#include "Vulkan/Images/AllocatedImage.h"
 
 #include <vector>
 #include <memory>
 #include <vulkan/vulkan.h>
 
 namespace NETAEngine {
-
-    struct AllocatedImage {
-        VkImage image = VK_NULL_HANDLE;
-        VkImageView imageView = VK_NULL_HANDLE;
-        VmaAllocation allocation = VK_NULL_HANDLE;
-        VkExtent3D extent{};
-        VkFormat format = VK_FORMAT_UNDEFINED;
-    };
 
     class Renderer {
     public:
@@ -40,17 +33,31 @@ namespace NETAEngine {
         void createPipeline();
         void createCommandSystem();
         void createSyncObjects();
+        void createImages();
 
-        void createDrawImage();
-        void destroyDrawImage();
+
+        void initDescriptors();
+        void updateDescriptorSets();
+
+        VkSampler m_defaultSampler = VK_NULL_HANDLE;
+
+        VkDescriptorSetLayout m_postProcessDescriptorLayout = VK_NULL_HANDLE;
+        VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
+        VkDescriptorSet m_postProcessDescriptorSet = VK_NULL_HANDLE;
 
         void recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex);
+        void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
 
         Window& window;
         RenderContext context;
 
-        AllocatedImage m_drawImage;
+        std::unique_ptr<PipelineLayout> m_postProcessLayout;
+        std::unique_ptr<GraphicsPipeline> m_postProcessPipeline;
+        std::unique_ptr<AllocatedImage> m_drawImage;
+        std::unique_ptr<AllocatedImage> m_depthImage;
+
         const VkFormat m_drawFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+        const VkFormat m_depthFormat = VK_FORMAT_D32_SFLOAT;
 
         // Recursos del pipeline (no es el renderpass)
         std::unique_ptr<PipelineLayout> pipelineLayout;

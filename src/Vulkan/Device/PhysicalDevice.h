@@ -13,6 +13,7 @@ namespace NETAEngine {
         bool descriptorIndexing = false;
         bool timelineSemaphores = false;
         bool dynamicRendering = false;
+        bool synchronization2 = false;
         bool meshShaders = false;
         bool portabilitySubset = false;
     };

@@ -2,110 +2,128 @@
 #include "Vulkan/Platform/FileSystem.h"
 #include "Vulkan/Utils/ErrorHandling.h"
 #include "Vulkan/Platform/FileSystem.h"
+#include "Vulkan/Images/AllocatedImage.h"
 
 #include <stdexcept>
 
 namespace NETAEngine {
 
-    void Renderer::createDrawImage() {
+    void Renderer::initDescriptors() {
 
+        VkSamplerCreateInfo samplerInfo{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        VK_CHECK(vkCreateSampler(context.getDevice(), &samplerInfo, nullptr, &m_defaultSampler));
+
+        // Crear diseño del conjunto des descriptores (enlace 0 = muestreador de imagenes combinado)
+        VkDescriptorSetLayoutBinding binding{};
+        binding.binding = 0;
+        binding.descriptorCount = 1;
+        binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+        VkDescriptorSetLayoutCreateInfo layoutInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+        layoutInfo.bindingCount = 1;
+        layoutInfo.pBindings = &binding;
+        VK_CHECK(vkCreateDescriptorSetLayout(context.getDevice(), &layoutInfo, nullptr, &m_postProcessDescriptorLayout));
+
+        // crear grupo de descriptores
+        VkDescriptorPoolSize poolSize{};
+        poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        poolSize.descriptorCount = 10;
+
+        VkDescriptorPoolCreateInfo poolInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+        poolInfo.poolSizeCount = 1;
+        poolInfo.pPoolSizes = &poolSize;
+        poolInfo.maxSets = 10;
+        VK_CHECK(vkCreateDescriptorPool(context.getDevice(), &poolInfo, nullptr, &m_descriptorPool));
+
+        // Asignar el conjunto de descriptores
+        VkDescriptorSetAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+        allocInfo.descriptorPool = m_descriptorPool;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &m_postProcessDescriptorLayout;
+        VK_CHECK(vkAllocateDescriptorSets(context.getDevice(), &allocInfo, &m_postProcessDescriptorSet));
+    }
+
+    void Renderer::updateDescriptorSets() {
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = m_drawImage->getImageView();
+        imageInfo.sampler = m_defaultSampler;
+
+        VkWriteDescriptorSet descriptorWrite{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+        descriptorWrite.dstSet = m_postProcessDescriptorSet;
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(context.getDevice(), 1, &descriptorWrite, 0, nullptr);
+    }
+
+    void Renderer::createImages() {
         VkExtent2D extent = context.getSwapChain()->getExtent();
+        VkExtent3D drawExtent = { extent.width, extent.height, 1 };
 
-        m_drawImage.format = m_drawFormat;
-        m_drawImage.extent = { extent.width, extent.height, 1 };
+        // Esta mierda esta hardcodeada, cambialo despues.
+        VkImageUsageFlags drawImageUsage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+            VK_IMAGE_USAGE_STORAGE_BIT |
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+            VK_IMAGE_USAGE_SAMPLED_BIT;
 
-        VkImageCreateInfo imgInfo{};
-        imgInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        imgInfo.imageType = VK_IMAGE_TYPE_2D;
-        imgInfo.format = m_drawImage.format;
-        imgInfo.extent = m_drawImage.extent;
-        imgInfo.mipLevels = 1;
-        imgInfo.arrayLayers = 1;
-        imgInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        imgInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        m_drawImage = std::make_unique<AllocatedImage>(
+            context.getDevice(),
+            context.getAllocator(),
+            drawExtent,
+            m_drawFormat,
+            drawImageUsage,
+            VK_IMAGE_ASPECT_COLOR_BIT
+        );
 
-        imgInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT |
-                        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        VkImageUsageFlags depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-        VmaAllocationCreateInfo allocInfo{};
-        allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-        allocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        VK_CHECK(vmaCreateImage(context.getAllocator(), &imgInfo, &allocInfo, &m_drawImage.image, &m_drawImage.allocation, nullptr));
-
-        VkImageViewCreateInfo viewInfo{};
-        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.image = m_drawImage.image;
-        viewInfo.format = m_drawImage.format;
-        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
-
-        VK_CHECK(vkCreateImageView(context.getDevice(), &viewInfo, nullptr, &m_drawImage.imageView));
+        m_depthImage = std::make_unique<AllocatedImage>(
+            context.getDevice(),
+            context.getAllocator(),
+            drawExtent,
+            m_depthFormat,
+            depthImageUsage,
+            VK_IMAGE_ASPECT_DEPTH_BIT
+        );
 
     }
 
-    void Renderer::destroyDrawImage() {
-        if (m_drawImage.image != VK_NULL_HANDLE) {
-            vkDestroyImageView(context.getDevice(), m_drawImage.imageView, nullptr);
-            vmaDestroyImage(context.getAllocator(), m_drawImage.image, m_drawImage.allocation);
-
-            m_drawImage.image = VK_NULL_HANDLE;
-            m_drawImage.imageView = VK_NULL_HANDLE;
-        }
-    }
-
-    static void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout) {
-        VkImageMemoryBarrier barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
-        barrier.oldLayout = oldLayout;
+    void Renderer::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout) {
+        VkImageMemoryBarrier2 barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
+        barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+        barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
+        barrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+        barrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
+        barrier.oldLayout = currentLayout;
         barrier.newLayout = newLayout;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = image;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+        // Determinamos la mascara de aspecto automaticamente en funcion del nuevo diseño.
+        VkImageAspectFlags aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+
+        barrier.subresourceRange.aspectMask = aspectMask;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
         barrier.subresourceRange.baseArrayLayer = 0;
         barrier.subresourceRange.layerCount = 1;
+        barrier.image = image;
 
-        VkPipelineStageFlags sourceStage;
-        VkPipelineStageFlags destinationStage;
+        VkDependencyInfo dependencyInfo{ VK_STRUCTURE_TYPE_DEPENDENCY_INFO };
+        dependencyInfo.imageMemoryBarrierCount = 1;
+        dependencyInfo.pImageMemoryBarriers = &barrier;
 
-        if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        }
-
-        else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-            barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-            sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        }
-
-        else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        }
-
-        else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-            barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            barrier.dstAccessMask = 0;
-            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        }
-        else {
-            throw std::invalid_argument("Unsupported layout transition!");
-        }
-
-        vkCmdPipelineBarrier(cmd, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
     }
 
     Renderer::Renderer(Window& win, VkInstance inst, VkSurfaceKHR surf)
@@ -115,9 +133,12 @@ namespace NETAEngine {
     }
 
     Renderer::~Renderer() {
-        destroyDrawImage();
-
         VkDevice device = context.getDevice();
+        vkDeviceWaitIdle(device);
+
+        if (m_descriptorPool != VK_NULL_HANDLE) vkDestroyDescriptorPool(device, m_descriptorPool, nullptr);
+        if (m_postProcessDescriptorLayout != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device, m_postProcessDescriptorLayout, nullptr);
+        if (m_defaultSampler != VK_NULL_HANDLE) vkDestroySampler(device, m_defaultSampler, nullptr);
 
         // Destruir todos los renderFinishedSemaphores (uno por imagen del swapchain)
         for (VkSemaphore semaphore : renderFinishedSemaphores) {
@@ -140,10 +161,17 @@ namespace NETAEngine {
     }
 
     void Renderer::initVulkan() {
-        createDrawImage();
+        createImages();
+        initDescriptors();
 
-        pipelineLayout = std::make_unique<PipelineLayout>(context.getDevice());
+        pipelineLayout = std::make_unique<PipelineLayout>(context.getDevice(), std::vector<VkDescriptorSetLayout>{});
+
+        m_postProcessLayout = std::make_unique<PipelineLayout>(context.getDevice(),
+                              std::vector<VkDescriptorSetLayout>{ m_postProcessDescriptorLayout });
+
         createPipeline();
+        updateDescriptorSets();
+
         createCommandSystem();
         createSyncObjects();
     }
@@ -154,10 +182,21 @@ namespace NETAEngine {
         graphicsPipeline = std::make_unique<GraphicsPipeline>(
             context.getDevice(),
             context.getSwapChain()->getExtent(),
-            m_drawImage.format,
+            m_drawImage->getFormat(),
+            m_depthImage->getFormat(),
             pipelineLayout->get(),
             (exePath + "/Shaders/vert.spv").c_str(),
             (exePath + "/Shaders/frag.spv").c_str()
+        );
+
+        m_postProcessPipeline = std::make_unique<GraphicsPipeline>(
+            context.getDevice(),
+            context.getSwapChain()->getExtent(),
+            context.getSwapChain()->getImageFormat(),
+            VK_FORMAT_UNDEFINED,
+            m_postProcessLayout->get(),
+            (exePath + "/Shaders/fullscreen.spv").c_str(),
+            (exePath + "/Shaders/tonemapping.spv").c_str()
         );
     }
 
@@ -212,42 +251,50 @@ namespace NETAEngine {
         VkCommandBufferBeginInfo beginInfo{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
 
-        // La imagen que usaremos para que se copie a la pantalla.
-        VkImage swapChainImage = context.getSwapChain()->getImage(imageIndex);
+        VkImage currentDrawImage = m_drawImage->getImage();
+        VkImageView currentDrawImageView = m_drawImage->getImageView();
+        VkExtent3D currentDrawExtent = m_drawImage->getExtent();
+        VkImage currentDepthImage = m_depthImage->getImage();
+        VkImageView currentDepthImageView = m_depthImage->getImageView();
 
-        // Transicion de la imagen HDR draw para que sea escribible
-        imageBarrier(cmd, m_drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkImage swapChainImage = context.getSwapChain()->getImage(imageIndex);
+        VkImageView swapChainImageView = context.getSwapChain()->getImageView(imageIndex);
+        VkExtent2D swapChainExtent = context.getSwapChain()->getExtent();
+
+        // Off screen HDR
+        transitionImage(cmd, currentDrawImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        transitionImage(cmd, currentDepthImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
         // Renderiza la escena en m_drawImage (HDR)
         VkRenderingAttachmentInfo colorAttachment{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
-        colorAttachment.imageView = m_drawImage.imageView;
+        colorAttachment.imageView = currentDrawImageView;
         colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} }; // Actualmente, negro.
-        colorAttachment.clearValue = clearColor;
+        colorAttachment.clearValue = { {{0.0f, 0.0f, 0.0f, 1.0f}} }; // Negro
+
+        VkRenderingAttachmentInfo depthAttachment{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+        depthAttachment.imageView = currentDepthImageView;
+        depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depthAttachment.clearValue.depthStencil = { 1.0f, 0 };
 
         VkRenderingInfo renderingInfo{ VK_STRUCTURE_TYPE_RENDERING_INFO };
-        renderingInfo.renderArea = { {0, 0}, m_drawImage.extent.width, m_drawImage.extent.height };
+        renderingInfo.renderArea = { {0, 0}, currentDrawExtent.width, currentDrawExtent.height };
         renderingInfo.layerCount = 1;
         renderingInfo.colorAttachmentCount = 1;
         renderingInfo.pColorAttachments = &colorAttachment;
+        renderingInfo.pDepthAttachment = &depthAttachment;
 
         // Empieza el dynamic render
         vkCmdBeginRendering(cmd, &renderingInfo);
-
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline->get());
 
         // Setup del estado dynamico
-        VkViewport viewport{};
-        viewport.width = (float)m_drawImage.extent.width;
-        viewport.height = (float)m_drawImage.extent.height;
-        viewport.maxDepth = 1.0f;
+        VkViewport viewport{ 0.0f, 0.0f, (float)currentDrawExtent.width, (float)currentDrawExtent.height, 0.0f, 1.0f };
         vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-        VkRect2D scissor{};
-        scissor.offset = { 0, 0 };
-        scissor.extent = { m_drawImage.extent.width, m_drawImage.extent.height };
+        VkRect2D scissor{ {0, 0}, {currentDrawExtent.width, currentDrawExtent.height} };
         vkCmdSetScissor(cmd, 0, 1, &scissor);
 
         // Dibuja
@@ -257,31 +304,34 @@ namespace NETAEngine {
         vkCmdEndRendering(cmd);
 
         // Transiciona las imagenes al presente
-        imageBarrier(cmd, m_drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        transitionImage(cmd, currentDrawImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        transitionImage(cmd, swapChainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-        imageBarrier(cmd, swapChainImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        VkRenderingAttachmentInfo swapchainAttachment{ VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
+        swapchainAttachment.imageView = swapChainImageView;
+        swapchainAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        swapchainAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        swapchainAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-        VkImageBlit blitRegion{};
-        blitRegion.srcOffsets[1].x = m_drawImage.extent.width;
-        blitRegion.srcOffsets[1].y = m_drawImage.extent.height;
-        blitRegion.srcOffsets[1].z = 1;
+        VkRenderingInfo postProcessInfo{ VK_STRUCTURE_TYPE_RENDERING_INFO };
+        postProcessInfo.renderArea = { {0, 0}, swapChainExtent.width, swapChainExtent.height };
+        postProcessInfo.layerCount = 1;
+        postProcessInfo.colorAttachmentCount = 1;
+        postProcessInfo.pColorAttachments = &swapchainAttachment;
 
-        blitRegion.dstOffsets[1].x = context.getSwapChain()->getExtent().width;
-        blitRegion.dstOffsets[1].y = context.getSwapChain()->getExtent().height;
-        blitRegion.dstOffsets[1].z = 1;
+        vkCmdBeginRendering(cmd, &postProcessInfo);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_postProcessPipeline->get());
 
-        blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blitRegion.srcSubresource.layerCount = 1;
-        blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blitRegion.dstSubresource.layerCount = 1;
+        VkViewport postViewport{ 0.0f, 0.0f, (float)swapChainExtent.width, (float)swapChainExtent.height, 0.0f, 1.0f };
+        vkCmdSetViewport(cmd, 0, 1, &postViewport);
+        VkRect2D postScissor{ {0, 0}, swapChainExtent };
+        vkCmdSetScissor(cmd, 0, 1, &postScissor);
 
-        vkCmdBlitImage(cmd,
-            m_drawImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            swapChainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            1, &blitRegion, VK_FILTER_LINEAR);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_postProcessLayout->get(), 0, 1, &m_postProcessDescriptorSet, 0, nullptr);
+        vkCmdDraw(cmd, 3, 1, 0, 0); // Dibuja el triangulo en fullscreen
+        vkCmdEndRendering(cmd);
 
-        imageBarrier(cmd, swapChainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
+        transitionImage(cmd, swapChainImage, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
         VK_CHECK(vkEndCommandBuffer(cmd));
     }
 
@@ -367,11 +417,14 @@ namespace NETAEngine {
 
         vkDeviceWaitIdle(context.getDevice());
 
-        destroyDrawImage();
+        m_drawImage.reset();
+        m_depthImage.reset();
+
         context.recreateSwapChain();
 
-        createDrawImage();
-        createPipeline();
+        createImages();
+
+        updateDescriptorSets();
 
         window.resetWindowResizedFlag();
     }

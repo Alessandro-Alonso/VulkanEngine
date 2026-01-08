@@ -9,6 +9,7 @@ public:
         VkDevice device,
         VkExtent2D swapchainExtent,
         VkFormat colorFormat,
+        VkFormat depthFormat,
         VkPipelineLayout layout,
         const char* vertFile,
         const char* fragFile
