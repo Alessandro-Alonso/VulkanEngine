@@ -1,5 +1,7 @@
 #include "RenderContext.h"
 #include "Vulkan/Utils/ErrorHandling.h"
+#include "vulkan/vulkan_core.h"
+#include "Vulkan/Device/PhysicalDevice.h"
 
 namespace NETAEngine {
 
@@ -32,42 +34,23 @@ namespace NETAEngine {
             window.getWindow(),
             physicalDeviceManager.getQueueFamilyIndices()
         );
+
+        m_graphicsQueue = physicalDeviceManager.getGraphicsQueue();
+        m_presentQueue = physicalDeviceManager.getPresentQueue();
     }
 
     RenderContext::~RenderContext() {
-        // 1. Primero rompe el swapchain (Usa el dispositivo)
-        if (swapChain) {
-            swapChain->cleanup();
-        }
-        // 2. Destruye el VMA despues. (Usa el dispositivo)
         if (allocator != VK_NULL_HANDLE) {
             vmaDestroyAllocator(allocator);
         }
     }
 
-    VkQueue RenderContext::getGraphicsQueue() const {
-        VkQueue queue;
-        vkGetDeviceQueue(getDevice(), getQueueFamilies().graphicsFamily.value(), 0, &queue);
-        return queue;
-    }
-
-    VkQueue RenderContext::getPresentQueue() const {
-        VkQueue queue;
-        vkGetDeviceQueue(getDevice(), getQueueFamilies().presentFamily.value(), 0, &queue);
-        return queue;
-    }
+    VkQueue RenderContext::getGraphicsQueue() const { return m_graphicsQueue; }
+    VkQueue RenderContext::getPresentQueue() const { return m_presentQueue; }
 
     void RenderContext::recreateSwapChain() {
         vkDeviceWaitIdle(getDevice());
 
-        swapChain.reset();
-
-        swapChain = std::make_unique<VulkanSwapChain>(
-            physicalDeviceManager.getPhysicalDevice(),
-            physicalDeviceManager.getDevice(),
-            m_surface,
-            window.getWindow(),
-            physicalDeviceManager.getQueueFamilyIndices()
-        );
+        swapChain->recreate();
     }
 }

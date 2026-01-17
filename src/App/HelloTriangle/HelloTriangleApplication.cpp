@@ -1,3 +1,4 @@
+#include "vulkan/vulkan_core.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -5,10 +6,18 @@
 #include "Vulkan/Utils/ErrorHandling.h"
 #include "Vulkan/Utils/VulkanUtils.h"
 
+#ifdef __APPLE__
+#include "Platform/MacOS/VulkanPlatform.h"
+#endif
+
+
 namespace NETAEngine {
 
     HelloTriangleApplication::HelloTriangleApplication() = default;
 
+    // El destructor de HelloTriangleApplication se encarga de limpiar los recursos de Vulkan,
+    // como el dispositivo logico, la superficie, el debug messenger y la instancia, ademas
+    // de limpiar la ventana glfw.
     HelloTriangleApplication::~HelloTriangleApplication() {
 
         m_renderer.reset();
@@ -28,13 +37,16 @@ namespace NETAEngine {
         m_window.cleanup();
     }
 
+    // Esto es el run, donde se inicializa la ventana, se inicializa Vulkan y se entra en el main loop.
     void HelloTriangleApplication::run() {
         m_window.initWindow();
         initVulkan();
         mainLoop();
     }
 
+    // Esto se encarga de inicializar Vulkan, creando la instancia, el debug messenger, la superficie y el renderer.
     void HelloTriangleApplication::initVulkan() {
+        
         createInstance();
         setupDebugMessenger();
         createSurface();
@@ -42,6 +54,8 @@ namespace NETAEngine {
         m_renderer = std::make_unique<Renderer>(m_window, m_instance, m_surface);
     }
 
+    // El mainloop es el bucle principal de la aplicacion, donde se procesan los eventos de la ventana y se renderiza cada frame,
+    // siempre y cuando la ventana no este minimizada, ya que si esta minimizada, el tamaño del framebuffer es 0 (como ese video que te enseñe).
     void HelloTriangleApplication::mainLoop() {
         while (!glfwWindowShouldClose(m_window.getWindow())) {
             glfwPollEvents();
@@ -49,7 +63,7 @@ namespace NETAEngine {
             int width, height;
             glfwGetFramebufferSize(m_window.getWindow(), &width, &height);
 
-            // Solo renderiza la ventana si es visible. Es decir, si no esta minimizada.
+            // Only render if the window is visible (not minimized).
             if (width > 0 && height > 0 && m_renderer) {
                 m_renderer->drawFrame();
             }
@@ -60,6 +74,8 @@ namespace NETAEngine {
         }
     }
 
+    // createInstance se encarga de crear la instancia de Vulkan, que es el primer paso para usar Vulkan, y se le pasan las extensiones
+    // necesarias para que Vulkan funcione correctamente, ademas de las capas de validacion si estan habilitadas, y la informacion de la aplicacion.
     void HelloTriangleApplication::createInstance() {
         if (m_enableValidationLayers && !Utils::checkValidationLayerSupport(m_validationLayers)) {
             GE_CHECK(false, "Requested validation layers are not available");
@@ -78,6 +94,13 @@ namespace NETAEngine {
         createInfo.pApplicationInfo = &appInfo;
 
         auto extensions = Utils::getRequiredExtensions(m_enableValidationLayers);
+
+#ifdef __APPLE__
+        auto platformExtensions = macOSVulkan::getRequiredInstanceExtensions();
+        extensions.insert(extensions.end(), platformExtensions.begin(), platformExtensions.end());
+        createInfo.flags |= macOSVulkan::getInstanceCreateFlags();
+#endif
+
         createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
         createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -98,9 +121,10 @@ namespace NETAEngine {
 
         // Error Handling.
         VK_CHECK(vkCreateInstance(&createInfo, nullptr, &m_instance));
-
     }
 
+    // populateDebugMessengerCreateInfo se encarga de llenar la estructura de VkDebugUtilsMessengerCreateInfoEXT, que es la que se va a usar para crear el
+    // debug messenger, con la informacion de las capas de validacion, los tipos de mensajes que se quieren recibir y la funcion de callback.
     void HelloTriangleApplication::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
         createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -115,6 +139,8 @@ namespace NETAEngine {
         createInfo.pUserData = nullptr;
     }
 
+    // setupDebugMessenger se encarga de crear el debug messenger, que es el encargado de recibir los mensajes de las capas de validacion,
+    // y se le pasa la estructura de VkDebugUtilsMessengerCreateInfoEXT que se lleno en la funcion anterior, para que se cree con esa informacion.
     void HelloTriangleApplication::setupDebugMessenger() {
         if (!m_enableValidationLayers) return;
 
@@ -125,6 +151,7 @@ namespace NETAEngine {
         VK_CHECK(Utils::CreateDebugUtilsMessengerEXT(m_instance, &createInfo, nullptr, &m_debugMessenger));
     }
 
+    // createSurface se encarga de crear la superficie de Vulkan, que es el encargado de representar la ventana en Vulkan, y se le pasa la ventana de GLFW.
     void HelloTriangleApplication::createSurface() {
 
         // Error Handling.

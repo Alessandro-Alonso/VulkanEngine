@@ -4,6 +4,7 @@
 #include <vector>
 #include "Vulkan/Utils/VulkanTypes.h"
 #include "Vulkan/Utils/VulkanRAII.h"
+#include "vulkan/vulkan_core.h"
 
 namespace NETAEngine {
 
@@ -37,6 +38,9 @@ namespace NETAEngine {
 
         const DeviceCapabilities& getCapabilities() const { return m_capabilities; }
         QueueFamilyIndices getQueueFamilyIndices() const { return m_queueFamilyIndices; }
+
+        VkQueue getGraphicsQueue() const { return graphicsQueue; }
+        VkQueue getPresentQueue() const { return presentQueue; }
 
     private:
         VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;

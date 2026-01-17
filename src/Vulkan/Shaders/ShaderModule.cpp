@@ -1,7 +1,8 @@
 #include "ShaderModule.h"
-#include "Vulkan\Utils\ErrorHandling.h"
+#include "Vulkan/Utils/ErrorHandling.h"
 #include <fstream>
 
+// Esta clase es simplemente un wrapper para un VkShaderModule, que se encarga de cargar el shader desde un archivo SPIR-V
 ShaderModule::ShaderModule(VkDevice device, const std::string& filepath)
     : device(device)
 {

@@ -12,18 +12,21 @@ void Window::framebufferResizeCallback(GLFWwindow* window, int width, int heigth
 const char* Window::generateRandomTitle() {
 
     static const std::vector<const char*> titles = {
-        "NETAEngine - Fuck Engineering",
-        "NETAEngine - Calculus Is Killing Me",
-        "NETAEngine - Be An Engineer They Said, Fuck Them.",
-        "NETAEngine - Fucking Kill Me",
-        "NETAEngine - I Have A Love And Hate Relationship With Physics",
-        "NETAEngine - 566976612065737061c3b161",
-        "NETAEngine - Jeg elsker brunost",
-        "NETAEngine - Make Ubisoft great again",
-        "NETAEngine - Fuerza Valencia",
-        "NETAEngine - The numbers. Mason. What do they mean?",
-        "NETAEngine - Oh shit, here we go again.",
-        "NETAEngine - Another day, the same shit.."
+        "NETAEngine - Fuck Engineering.    (VULKAN v1.4.341.0)",
+        "NETAEngine - Calculus Is Killing Me.   (VULKAN v1.4.341.0)",
+        "NETAEngine - Be An Engineer They Said, Fuck Them.  (VULKAN v1.4.341.0)",
+        "NETAEngine - Fucking Kill Me.  (VULKAN v1.4.341.0)",
+        "NETAEngine - I Have A Love And Hate Relationship With Physics. (VULKAN v1.4.341.0)",
+        "NETAEngine - 566976612065737061c3b161     (VULKAN v1.4.341.0)",
+        "NETAEngine - Jeg elsker brunost   (VULKAN v1.4.341.0)",
+        "NETAEngine - Fuerza Valencia   (VULKAN v1.4.341.0)",
+        "NETAEngine - The numbers. Mason. What do they mean?   (VULKAN v1.4.341.0)",
+        "NETAEngine - Oh shit, here we go again.    (VULKAN v1.4.341.0)",
+        "NETAEngine - Another day, the same shit..  (VULKAN v1.4.341.0)",
+        "NETAEngine - I'm not a real engineer, I'm just a guy who knows how to use a computer.  (VULKAN v1.4.341.0)",
+        "NETAEngine - I have a love-hate relationship with engineering this garbage.    (VULKAN v1.4.341.0)",
+        "NETAEngine - Oh, a window with this title!   (VULKAN v1.4.341.0)",
+        "NETAEngine - This is the best engine ever created. (VULKAN v1.4.341.0)"
     };
 
     static std::random_device rd;

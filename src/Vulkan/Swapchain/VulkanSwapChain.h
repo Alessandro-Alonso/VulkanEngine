@@ -20,6 +20,7 @@ namespace NETAEngine {
         ~VulkanSwapChain();
 
         void cleanup();
+        void recreate();
 
         VkSwapchainKHR getSwapChain() const { return swapChain; }
         VkFormat getImageFormat() const { return swapChainImageFormat; }

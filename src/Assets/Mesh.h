@@ -24,7 +24,7 @@ namespace NETAEngine {
 		std::vector<Vertex> _vertices;
 		AllocatedBuffer _vertexBuffer;
 
-		void upload(VmaAllocator allocator, VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool);
+		void upload(VmaAllocator allocator, VkDevice device, VkQueue graphicsQueue, VkCommandPool transferPool);
 
 		void cleanup(VmaAllocator allocator);
 	};

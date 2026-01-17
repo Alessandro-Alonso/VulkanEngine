@@ -7,7 +7,6 @@ class GraphicsPipeline {
 public:
     GraphicsPipeline(
         VkDevice device,
-        VkExtent2D swapchainExtent,
         VkFormat colorFormat,
         VkFormat depthFormat,
         VkPipelineLayout layout,

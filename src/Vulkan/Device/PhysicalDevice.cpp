@@ -8,10 +8,14 @@
 
 namespace NETAEngine {
 
+    // El baseDeviceExtensions es un vector de strings con las extensiones necesarias para que Vulkan funcione correctamente en la grafica. (Parece que esta escrito por ia, pero he sido yo lol.)
 const std::vector<const char*> baseDeviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
+// Esto se encarga de elegir el dispositivo fisico a usar, que es basicamente la tarjeta grafica. Funciona con un sistema de puntuacion,
+// donde se le asigna una puntuacion a cada dispositivo fisico segun sus caracteristicas, y se elige el dispositivo con la puntuacion mas alta,
+// siempre y cuando cumpla con los requisitos minimos, como tener las colas necesarias y soportar las extensiones necesarias.
 void PhysicalDevice::pickPhysicalDevice(VkInstance instance, VkSurfaceKHR surface) {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -59,11 +63,14 @@ void PhysicalDevice::pickPhysicalDevice(VkInstance instance, VkSurfaceKHR surfac
 
 }
 
+// Esto basciamente mira si la grafica soporta las colas necesarias para renderizar en la ventana.
 bool PhysicalDevice::isDeviceSuitable(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR surface) {
     QueueFamilyIndices indices = findQueueFamilies(vkPhysicalDevice, surface);
     return indices.isComplete() && checkDeviceExtensionSupport(vkPhysicalDevice, baseDeviceExtensions);
 }
 
+// Esto es mas complicado, ya que se encarga de obtener las colas disponibles en la grafica, y ver si alguna de ellas soporta las operaciones necesarias
+// para renderizar en la ventana, como por ejemplo una cola de graficos y una cola de presentacion.
 void PhysicalDevice::queryDeviceCapabilities(VkPhysicalDevice vkPhysicalDevice) {
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(vkPhysicalDevice, nullptr, &extensionCount, nullptr);
@@ -110,6 +117,7 @@ void PhysicalDevice::queryDeviceCapabilities(VkPhysicalDevice vkPhysicalDevice) 
     m_capabilities.meshShaders = hasMeshShaderExtension && meshFeatures.meshShader;
 }
 
+// Esto basicamente mira si la grafica soporta las extensiones necesarias. Por eso se llama checkDeviceExtensionSupport.
 bool PhysicalDevice::checkDeviceExtensionSupport(VkPhysicalDevice vkPhysicalDevice, const std::vector<const char*>& extensionsToCheck) {
     uint32_t count;
     vkEnumerateDeviceExtensionProperties(vkPhysicalDevice, nullptr, &count, nullptr);
@@ -121,6 +129,9 @@ bool PhysicalDevice::checkDeviceExtensionSupport(VkPhysicalDevice vkPhysicalDevi
     return required.empty();
 }
 
+// Createlogicaldevice se encarga de crear el dispositivo logico, que es el que se va a usar para renderizar en la ventana.
+// Despues se obtienen las colas de graficos y presentacion. Ademas, aqui se habilitan las caracteristicas necesarias, como el anisotropico
+// el fill mode non solid, los timeline semaphores, los mesh shaders, el dynamic rendering y el synchronization2.
 void PhysicalDevice::createLogicalDevice() {
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = {
@@ -224,6 +235,7 @@ void PhysicalDevice::createLogicalDevice() {
     vkGetDeviceQueue(m_logicalDevice.get(), m_queueFamilyIndices.presentFamily.value(), 0, &presentQueue);
 }
 
+// Esto se llama findQueueFamilies, y como el nombre indica, se encarga de encontrar las colas disponibles en la grafica.
 QueueFamilyIndices PhysicalDevice::findQueueFamilies(VkPhysicalDevice vkPhysicalDevice, VkSurfaceKHR surface) {
     QueueFamilyIndices indices;
     uint32_t queueFamilyCount = 0;

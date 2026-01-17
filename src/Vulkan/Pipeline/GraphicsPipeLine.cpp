@@ -6,7 +6,6 @@
 
 GraphicsPipeline::GraphicsPipeline(
     VkDevice device,
-    VkExtent2D extent,
     VkFormat colorAttachmentFormat,
     VkFormat depthAttachmentFormat,
     VkPipelineLayout pipelineLayout,
@@ -38,24 +37,10 @@ GraphicsPipeline::GraphicsPipeline(
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-    VkViewport viewport{};
-    viewport.x = 0.f;
-    viewport.y = 0.f;
-    viewport.width = (float)extent.width;
-    viewport.height = (float)extent.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
-
-    VkRect2D scissor{};
-    scissor.offset = { 0,0 };
-    scissor.extent = extent;
-
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
-    viewportState.pViewports = &viewport;
     viewportState.scissorCount = 1;
-    viewportState.pScissors = &scissor;
 
     // Rasterizacion
     VkPipelineRasterizationStateCreateInfo rasterizer{};

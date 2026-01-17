@@ -6,8 +6,8 @@ namespace NETAEngine {
 
     VkVertexInputBindingDescription Vertex::getBindingDescription() {
 	    VkVertexInputBindingDescription bindingDescription{};
-	    bindingDescription.binding = 0;
-	    bindingDescription.stride = sizeof(Vertex);
+	    bindingDescription.binding   = 0;
+	    bindingDescription.stride    = sizeof(Vertex);
 	    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	    return bindingDescription;
     }
@@ -15,15 +15,15 @@ namespace NETAEngine {
     std::vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptions() {
         std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
 
-        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].binding  = 0;
         attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(Vertex, position);
+        attributeDescriptions[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[0].offset   = offsetof(Vertex, position);
 
-        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].binding  = 0;
         attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
+        attributeDescriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset   = offsetof(Vertex, color);
 
         return attributeDescriptions;
     }
@@ -31,14 +31,14 @@ namespace NETAEngine {
     void Mesh::upload(VmaAllocator allocator, VkDevice device, VkQueue graphicsQueue, VkCommandPool commandPool) {
         if (_vertices.empty()) return;
 
-        // Calcular tamaño en bytes
+        // Calcular tamaï¿½o en bytes
         size_t bufferSize = sizeof(Vertex) * _vertices.size();
 
         // Crear STAGING BUFFER (CPU Visible)
         // Este es el buffer temporal donde escribiremos desde C++
         VkBufferCreateInfo stagingBufferInfo{};
         stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        stagingBufferInfo.size = bufferSize;
+        stagingBufferInfo.size  = bufferSize;
         stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; // Fuente de la copia
 
         VmaAllocationCreateInfo stagingAllocInfo{};
@@ -58,7 +58,7 @@ namespace NETAEngine {
         // Aqui es donde viviran los datos permanentemente
         VkBufferCreateInfo vertexBufferInfo{};
         vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        vertexBufferInfo.size = bufferSize;
+        vertexBufferInfo.size  = bufferSize;
         // IMPORTANTE: TRANSFER_DST (destino de copia) + VERTEX_BUFFER (uso real)
         vertexBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
 
@@ -71,9 +71,9 @@ namespace NETAEngine {
         // Ejecutar comando de COPIA (Immediate Submit)
         // Creamos un CommandBuffer temporal solo para esta transferencia
         VkCommandBufferAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandPool = commandPool;
+        allocInfo.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocInfo.commandPool        = commandPool;
         allocInfo.commandBufferCount = 1;
 
         VkCommandBuffer commandBuffer;
@@ -88,20 +88,24 @@ namespace NETAEngine {
         VkBufferCopy copyRegion{};
         copyRegion.srcOffset = 0;
         copyRegion.dstOffset = 0;
-        copyRegion.size = bufferSize;
+        copyRegion.size      = bufferSize;
         vkCmdCopyBuffer(commandBuffer, stagingBuffer._buffer, _vertexBuffer._buffer, 1, &copyRegion);
         vkEndCommandBuffer(commandBuffer);
 
         // Enviar a la cola
+        VkFenceCreateInfo fenceInfo{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+        VkFence transferFence;
+        vkCreateFence(device, &fenceInfo, nullptr, &transferFence);
+
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &commandBuffer;
 
-        vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-        vkQueueWaitIdle(graphicsQueue); // Esperar a que termine la copia
-
         // Limpieza
+        vkQueueSubmit(graphicsQueue, 1, &submitInfo, transferFence);
+        vkWaitForFences(device, 1, &transferFence, VK_TRUE, UINT64_MAX);
+        vkDestroyFence(device, transferFence, nullptr);
         vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
         vmaDestroyBuffer(allocator, stagingBuffer._buffer, stagingBuffer._allocation);
     }

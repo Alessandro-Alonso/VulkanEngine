@@ -3,10 +3,10 @@
 #include "RenderContext.h"
 #include "Vulkan/Pipeline/PipelineLayout.h"
 #include "Vulkan/Pipeline/GraphicsPipeLine.h"
-#include "Vulkan/Utils/VulkanTypes.h"
 #include "Vulkan/Images/AllocatedImage.h"
+#include "vulkan/vulkan_core.h"
 
-#include <vector>
+#include <array>
 #include <memory>
 #include <vulkan/vulkan.h>
 
@@ -27,15 +27,27 @@ namespace NETAEngine {
         void recreateSwapChain();
 
     private:
+        RenderContext context;
+        Window& window;
+
+        std::unique_ptr<AllocatedImage> m_drawImage;
+        std::unique_ptr<AllocatedImage> m_depthImage;
+        std::unique_ptr<PipelineLayout> m_postProcessLayout;
+        std::unique_ptr<GraphicsPipeline> m_postProcessPipeline;
+
+        // Recursos del pipeline (no es el renderpass)
+        std::unique_ptr<PipelineLayout> pipelineLayout;
+        std::unique_ptr<GraphicsPipeline> graphicsPipeline;
+
+        static constexpr uint32_t DESCRIPTOR_POOL_MAX_SETS = 100;
+        static constexpr uint32_t DESCRIPTOR_POOL_SAMPLER_COUNT = 100;
+
         static constexpr const char* SHADER_DIR = "Shaders";
 
         void initVulkan();
+        void initFrameData();
         void createPipeline();
-        void createCommandSystem();
-        void createSyncObjects();
         void createImages();
-
-
         void initDescriptors();
         void updateDescriptorSets();
 
@@ -46,34 +58,32 @@ namespace NETAEngine {
         VkDescriptorSet m_postProcessDescriptorSet = VK_NULL_HANDLE;
 
         void recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex);
-        void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
+        void transitionImage(VkCommandBuffer cmd, VkImage image,
+            VkImageLayout currentLayout, VkImageLayout newLayout,
+            VkPipelineStageFlags2 srcStage, VkAccessFlags2 srcAccess,
+            VkPipelineStageFlags2 dstStage, VkAccessFlags2 dstAccess);
 
-        Window& window;
-        RenderContext context;
-
-        std::unique_ptr<PipelineLayout> m_postProcessLayout;
-        std::unique_ptr<GraphicsPipeline> m_postProcessPipeline;
-        std::unique_ptr<AllocatedImage> m_drawImage;
-        std::unique_ptr<AllocatedImage> m_depthImage;
 
         const VkFormat m_drawFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
         const VkFormat m_depthFormat = VK_FORMAT_D32_SFLOAT;
 
-        // Recursos del pipeline (no es el renderpass)
-        std::unique_ptr<PipelineLayout> pipelineLayout;
-        std::unique_ptr<GraphicsPipeline> graphicsPipeline;
+        struct FrameData {
+            VkCommandPool commandPool           = VK_NULL_HANDLE;
+            VkCommandBuffer commandBuffer       = VK_NULL_HANDLE;
+            VkSemaphore imageAvailableSemaphore = VK_NULL_HANDLE;
+            VkSemaphore renderFinishedSemaphore = VK_NULL_HANDLE;
+            VkFence inFlightFence               = VK_NULL_HANDLE;
+        };
 
-        // Recursos de commando
-        VkCommandPool commandPool = VK_NULL_HANDLE;
-        std::vector<VkCommandBuffer> commandBuffers;
+        static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+        std::array<FrameData, MAX_FRAMES_IN_FLIGHT> m_frames;
+        uint32_t m_currentFrame = 0;
+        
+        std::vector<VkSemaphore> m_renderFinishedSemaphores;
 
-        // Syncronizacion
-        const int MAX_FRAMES_IN_FLIGHT = 2;
-        uint32_t currentFrame = 0;
+        VkCommandPool transferCommandPool = VK_NULL_HANDLE;
 
-        std::vector<VkSemaphore> imageAvailableSemaphores;
-        std::vector<VkSemaphore> renderFinishedSemaphores;
-        std::vector<VkFence> inFlightFences;
-        std::vector<VkFence> imagesInFlight;
+        FrameData& getCurrentFrame() { return m_frames[m_currentFrame]; }
+
     };
 }

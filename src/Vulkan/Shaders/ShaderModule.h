@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 
+// La clase ShaderModule es un wrapper para un VkShaderModule, que se encarga de cargar el shader desde un archivo SPIR-V
 class ShaderModule {
 public:
     ShaderModule(VkDevice device, const std::string& filepath);

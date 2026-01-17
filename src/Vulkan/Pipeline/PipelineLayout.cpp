@@ -1,5 +1,5 @@
 #include "PipelineLayout.h"
-#include "Vulkan\Utils\ErrorHandling.h"
+#include "Vulkan/Utils/ErrorHandling.h"
 #include <stdexcept>
 
 PipelineLayout::PipelineLayout(VkDevice device, const std::vector<VkDescriptorSetLayout>& descriptorLayouts)
